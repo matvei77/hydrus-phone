@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-rc.5 — 2026-07-10
+
+- Fixed Android double-tap zoom by separating touch-pointer detection from the browser's synthesized double-click event.
+- Added visible `BUFFERING` / `N READY` lookahead status in the viewer so phone-side prefetch behavior can be verified directly.
+
 ## 0.1.0-rc.4 — 2026-07-10
 
 - Added volatile, byte-bounded lookahead for the next 16 small images and metadata/poster warming for upcoming videos.

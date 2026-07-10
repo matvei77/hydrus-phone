@@ -284,6 +284,20 @@ test("mixed-media viewer, Back, metadata, tags, and archive controls work", asyn
   await expect(
     page.locator('.viewer-image[src="/api/media/1/file"]'),
   ).toBeVisible();
+  if (testInfo.project.name === "android") {
+    const stage = page.locator(".zoom-stage");
+    const bounds = await stage.boundingBox();
+    if (!bounds) throw new Error("zoom stage has no visible bounds");
+    const x = bounds.x + bounds.width / 2;
+    const y = bounds.y + bounds.height / 2;
+    await page.touchscreen.tap(x, y);
+    await page.waitForTimeout(80);
+    await page.touchscreen.tap(x, y);
+    await expect(page.locator(".viewer-image")).toHaveAttribute(
+      "style",
+      /scale\(2\.5\)/,
+    );
+  }
   if (process.env.CAPTURE_VISUALS) {
     await page.screenshot({
       path: `docs/screenshots/viewer-${testInfo.project.name}.png`,

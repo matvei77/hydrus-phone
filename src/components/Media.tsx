@@ -26,7 +26,8 @@ function ZoomableImage({
     x: number;
     y: number;
   } | null>(null);
-  const lastTap = useRef(0);
+  const lastTap = useRef<{ at: number; x: number; y: number } | null>(null);
+  const lastTouchZoom = useRef(0);
   const setScale = (scale: number, x = transform.x, y = transform.y) => {
     const next = Math.max(1, Math.min(5, scale));
     setTransform({ scale: next, x: next === 1 ? 0 : x, y: next === 1 ? 0 : y });
@@ -37,8 +38,39 @@ function ZoomableImage({
       className="zoom-stage"
       style={{ backgroundImage: `url(${placeholder})` }}
       onDoubleClick={(event) => {
+        if (Date.now() - lastTouchZoom.current < 500) return;
         event.stopPropagation();
         setScale(transform.scale > 1 ? 1 : 2.5);
+      }}
+      onPointerUp={(event) => {
+        if (event.pointerType !== "touch" || gesture.current?.distance) return;
+        const current = gesture.current;
+        if (
+          current &&
+          Math.hypot(
+            event.clientX - current.startX,
+            event.clientY - current.startY,
+          ) > 16
+        ) {
+          lastTap.current = null;
+          return;
+        }
+        const now = Date.now();
+        const previous = lastTap.current;
+        if (
+          previous &&
+          now - previous.at < 340 &&
+          Math.hypot(event.clientX - previous.x, event.clientY - previous.y) <
+            48
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          lastTouchZoom.current = now;
+          setScale(transform.scale > 1 ? 1 : 2.5);
+          lastTap.current = null;
+        } else {
+          lastTap.current = { at: now, x: event.clientX, y: event.clientY };
+        }
       }}
       onTouchStart={(event) => {
         if (event.touches.length === 2) {
@@ -53,13 +85,6 @@ function ZoomableImage({
             y: transform.y,
           };
         } else if (event.touches.length === 1) {
-          const now = Date.now();
-          if (now - lastTap.current < 280) {
-            setScale(transform.scale > 1 ? 1 : 2.5);
-            lastTap.current = 0;
-          } else {
-            lastTap.current = now;
-          }
           gesture.current = {
             scale: transform.scale,
             startX: event.touches[0].clientX,
@@ -261,7 +286,7 @@ export function Viewer({
   const prefetching = useRef(new Set<number>());
   const prefetchAbort = useRef(new AbortController());
   const prefetchBytes = useRef(0);
-  const [, setPrefetchVersion] = useState(0);
+  const [prefetchCount, setPrefetchCount] = useState(0);
   const onPositionChangeRef = useRef(onPositionChange);
   useEffect(() => {
     onPositionChangeRef.current = onPositionChange;
@@ -338,7 +363,7 @@ export function Viewer({
             bytes: blob.size,
           });
           prefetchBytes.current += blob.size;
-          setPrefetchVersion((version) => version + 1);
+          setPrefetchCount(prefetchedImages.current.size);
         } catch (error) {
           if ((error as Error).name !== "AbortError") {
             // Lookahead is opportunistic; the normal media request remains the fallback.
@@ -553,8 +578,19 @@ export function Viewer({
           >
             ←
           </button>
-          <span>
-            {position + 1} / {fileIds.length}
+          <span className="viewer-position">
+            <b>
+              {position + 1} / {fileIds.length}
+            </b>
+            {type === "image" && (
+              <small>
+                {prefetchCount
+                  ? `${prefetchCount} READY`
+                  : mediaReady
+                    ? "BUFFERING"
+                    : "LOADING"}
+              </small>
+            )}
           </span>
           <div className="viewer-header-actions">
             <button

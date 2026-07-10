@@ -909,6 +909,21 @@ button {
     500 13px Bahnschrift,
     sans-serif;
 }
+.viewer-position {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  font: 600 11px/1 Bahnschrift, sans-serif;
+  letter-spacing: 0.08em;
+}
+.viewer-position b {
+  color: white;
+}
+.viewer-position small {
+  color: var(--lime);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
 .viewer-button {
   width: 60px;
   height: 60px;

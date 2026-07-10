@@ -1,6 +1,6 @@
 # Status
 
-Phase: RC4 deployed; live phone browsing and search verification is in progress.
+Phase: RC5 deployed; live phone gesture and lookahead verification is in progress.
 
 Completed: greenfield React/Fastify PWA; secure credential/session boundary; complete search composer, filters, sorts, limits, bounded/virtualized result flow, mixed-media viewer, tag editor, archive API, saved/recent searches, health/settings/offline states, PWA, tests, Windows deployment/auto-start, security/operations documentation.
 

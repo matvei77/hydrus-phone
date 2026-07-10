@@ -2,7 +2,7 @@
 
 This audit maps the controlling `prompt.txt` scope to current evidence. “Automated” means repeatable local tests; “live” means the real Hydrus v649 / Client API v83 or the deployed tailnet service; “external” requires the physical Pixel or a user-designated mutable file.
 
-## Proven in RC4
+## Proven in RC5
 
 - Architecture/security: same-origin Fastify gateway, localhost Hydrus, renewable server-side session key, no generic proxy/CORS, validated bodies/queries, redacted headers, CSP/security headers, rate/body limits, `no-store` originals/API, secret scan, and tailnet-only HTTPS.
 - Health/recovery: diagnostic health, strict readiness, API-version/permission checks, timeout and error codes, session renewal, aborted-stream cleanup, graceful shutdown, continuously capped logs, crash restart, startup registration, health command, uninstall, update, and executable rollback path.
