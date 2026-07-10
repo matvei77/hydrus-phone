@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   QueryClient,
   QueryClientProvider,
@@ -14,6 +14,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { api } from "./api";
+import { mergeMetadataCache } from "./cache";
 import {
   activeFilterCount,
   queryKey,
@@ -21,7 +22,7 @@ import {
   serializeQuery,
   toSearchPayload,
 } from "./query";
-import { storage, type SavedSearch } from "./storage";
+import { scrollStorageKey, storage, type SavedSearch } from "./storage";
 import {
   defaultFilters,
   defaultQuery,
@@ -101,7 +102,7 @@ function Browse({
   health: any;
   healthError: Error | null;
 }) {
-  const location: any = useLocation();
+  const location = useLocation();
   const navigate = useNavigate();
   const [initial] = useState<QueryState>(() => {
     const v = new URLSearchParams(location.search).get("q");
@@ -117,17 +118,40 @@ function Browse({
   const [sorting, setSorting] = useState(false);
   const [viewer, setViewer] = useState<number | null>(null);
   const [media, setMedia] = useState<Map<number, Media>>(new Map());
-  const [loadingIds, setLoadingIds] = useState(new Set<number>());
+  const loadingIds = useRef(new Set<number>());
+  const metadataController = useRef(new AbortController());
   const [notice, setNotice] = useState("");
+  useEffect(() => storage.saveQuery(draft), [draft]);
   const submittedKey = queryKey(submitted);
   const search = useQuery({
     queryKey: ["search", submittedKey],
     queryFn: ({ signal }) => api.search(toSearchPayload(submitted), signal),
     enabled: health?.hydrus === "ok",
   });
+  const fileIds = useMemo(() => search.data?.fileIds ?? [], [search.data]);
+  const requestedView = new URLSearchParams(location.search).get("view");
   useEffect(() => {
+    if (!requestedView) {
+      setViewer(null);
+      requestAnimationFrame(() => {
+        const grid = document.getElementById("results-scroll");
+        if (grid) {
+          grid.scrollTop = Number(
+            localStorage.getItem(scrollStorageKey(submittedKey)) ?? 0,
+          );
+        }
+      });
+      return;
+    }
+    const requestedIndex = fileIds.indexOf(Number(requestedView));
+    if (requestedIndex >= 0) setViewer(requestedIndex);
+  }, [requestedView, fileIds, submittedKey]);
+  useEffect(() => {
+    metadataController.current.abort();
+    metadataController.current = new AbortController();
     setMedia(new Map());
-    setLoadingIds(new Set());
+    loadingIds.current.clear();
+    return () => metadataController.current.abort();
   }, [submittedKey]);
   const submit = () => {
     setSubmitted(draft);
@@ -140,31 +164,23 @@ function Browse({
   };
   const need = useCallback(
     (ids: number[]) => {
-      const wanted = ids.filter((id) => !media.has(id) && !loadingIds.has(id));
+      const wanted = ids.filter(
+        (id) => !media.has(id) && !loadingIds.current.has(id),
+      );
       if (!wanted.length) return;
-      setLoadingIds((s) => new Set([...s, ...wanted]));
+      wanted.forEach((id) => loadingIds.current.add(id));
       for (let i = 0; i < wanted.length; i += 128) {
         const batch = wanted.slice(i, i + 128);
         api
-          .metadata(batch)
-          .then((r) =>
-            setMedia((old) => {
-              const next = new Map(old);
-              r.files.forEach((m) => next.set(m.fileId, m));
-              return next;
-            }),
-          )
-          .catch((e) => setNotice(e.message))
-          .finally(() =>
-            setLoadingIds((s) => {
-              const n = new Set(s);
-              batch.forEach((id) => n.delete(id));
-              return n;
-            }),
-          );
+          .metadata(batch, metadataController.current.signal)
+          .then((r) => setMedia((old) => mergeMetadataCache(old, r.files)))
+          .catch((e) => {
+            if (e.name !== "AbortError") setNotice(e.message);
+          })
+          .finally(() => batch.forEach((id) => loadingIds.current.delete(id)));
       }
     },
-    [media, loadingIds],
+    [media],
   );
   const save = () => {
     const name = prompt("Name this search");
@@ -181,7 +197,30 @@ function Browse({
     ]);
     setNotice(`Saved “${name.trim()}”`);
   };
-  const fileIds = search.data?.fileIds ?? [];
+  const openViewer = (index: number) => {
+    const grid = document.getElementById("results-scroll");
+    if (grid) {
+      localStorage.setItem(
+        scrollStorageKey(submittedKey),
+        String(grid.scrollTop),
+      );
+    }
+    const params = new URLSearchParams(location.search);
+    params.set("view", String(fileIds[index]));
+    navigate(
+      { pathname: "/", search: params.toString() },
+      { state: { viewer: true } },
+    );
+  };
+  const closeViewer = () => {
+    if (location.state?.viewer) {
+      navigate(-1);
+      return;
+    }
+    const params = new URLSearchParams(location.search);
+    params.delete("view");
+    navigate({ pathname: "/", search: params.toString() }, { replace: true });
+  };
   return (
     <main className="browse-page">
       <header className="masthead">
@@ -235,17 +274,34 @@ function Browse({
       </section>
       {healthError && (
         <StatePanel
-          title="Gateway unavailable"
-          body="The desktop gateway is not reachable. Start Hydrus Pocket, then try again."
-          action={() => location.reload()}
+          title={
+            !navigator.onLine
+              ? "This device is offline"
+              : window.location.hostname.endsWith(".ts.net")
+                ? "Tailnet path unavailable"
+                : "Gateway unavailable"
+          }
+          body={
+            !navigator.onLine
+              ? "Reconnect this device to Wi-Fi or mobile data. The cached app remains available, but archive requests need a network path."
+              : window.location.hostname.endsWith(".ts.net")
+                ? "Tailscale cannot currently reach the desktop. Check Tailscale on this device and confirm the desktop is awake."
+                : "The desktop gateway is not reachable. Start Hydrus Pocket, then try again."
+          }
+          action={() => window.location.reload()}
         />
       )}{" "}
       {health?.hydrus === "error" && (
         <StatePanel
           title={
-            health.code === "HYDRUS_PERMISSION"
-              ? "Hydrus access needs attention"
-              : "Hydrus is unavailable"
+            (
+              {
+                HYDRUS_PERMISSION: "Hydrus access needs attention",
+                HYDRUS_API_UNSUPPORTED: "Hydrus update required",
+                HYDRUS_TIMEOUT: "Hydrus is not responding",
+                HYDRUS_UNAVAILABLE: "Hydrus is closed or restarting",
+              } as Record<string, string>
+            )[health.code] ?? "Hydrus is unavailable"
           }
           body={
             health.message ??
@@ -254,7 +310,7 @@ function Browse({
         />
       )}{" "}
       {search.isPending && health?.hydrus === "ok" && (
-        <div className="result-state">
+        <div className="result-state" role="status" aria-live="polite">
           <span className="spinner" />
           <p>Searching the archive…</p>
         </div>
@@ -268,7 +324,7 @@ function Browse({
       )}{" "}
       {search.data && (
         <>
-          <div className="results-bar">
+          <div className="results-bar" role="status" aria-live="polite">
             <div>
               <strong>{fileIds.length.toLocaleString()}</strong>
               <span>
@@ -326,7 +382,9 @@ function Browse({
               media={media}
               density={draft.density}
               onNeed={need}
-              onOpen={setViewer}
+              onOpen={openViewer}
+              scrollKey={submittedKey}
+              selectedId={viewer === null ? undefined : fileIds[viewer]}
             />
           ) : (
             <div className="result-state">
@@ -340,14 +398,15 @@ function Browse({
         </>
       )}
       {notice && (
-        <button className="toast" onClick={() => setNotice("")}>
+        <button className="toast" role="status" onClick={() => setNotice("")}>
           {notice}
         </button>
       )}
       {filters && (
         <FilterSheet
-          value={draft.filters}
-          onApply={(value) => setDraft({ ...draft, filters: value })}
+          query={draft}
+          services={services}
+          onApply={(value) => setDraft({ ...draft, ...value })}
           onClose={() => setFilters(false)}
         />
       )}{" "}
@@ -365,7 +424,15 @@ function Browse({
           media={media}
           services={services}
           onNeed={need}
-          onClose={() => setViewer(null)}
+          onClose={closeViewer}
+          onPositionChange={(position) => {
+            const params = new URLSearchParams(location.search);
+            params.set("view", String(fileIds[position]));
+            navigate(
+              { pathname: "/", search: params.toString() },
+              { replace: true, state: location.state },
+            );
+          }}
           onChanged={(id) => {
             setMedia((old) => {
               const n = new Map(old);
@@ -384,6 +451,7 @@ function Saved() {
   const navigate = useNavigate();
   const [saved, setSaved] = useState(storage.saved());
   const recent = storage.recent();
+  const [showRecent, setShowRecent] = useState(recent.length > 0);
   const open = (q: QueryState) =>
     navigate(`/?q=${encodeURIComponent(serializeQuery(q))}`);
   const remove = (id: string) => {
@@ -458,9 +526,20 @@ function Saved() {
           ))}
         </div>
       </section>
-      {recent.length > 0 && (
+      {showRecent && recent.length > 0 && (
         <section>
-          <h2>Recent</h2>
+          <div className="section-heading">
+            <h2>Recent</h2>
+            <button
+              className="text-button"
+              onClick={() => {
+                storage.clearRecent();
+                setShowRecent(false);
+              }}
+            >
+              Clear recent
+            </button>
+          </div>
           <div className="saved-list">
             {recent.slice(0, 8).map((q, i) => (
               <div key={i}>
@@ -527,6 +606,14 @@ function Settings({ health }: { health: any }) {
           <div>
             <dt>Tag services</dt>
             <dd>{locals.length}</dd>
+          </div>
+          <div>
+            <dt>Permission scope</dt>
+            <dd>
+              {health?.extraPermissions?.length
+                ? `${health.extraPermissions.length} unused permission(s)`
+                : "Least privilege"}
+            </dd>
           </div>
           <div>
             <dt>Last contact</dt>

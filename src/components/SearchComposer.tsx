@@ -82,6 +82,11 @@ export function SearchComposer({
         <span className="composer-hint">
           Use -tag to exclude · tag | tag for any
         </span>
+        {tokens.length > 0 && (
+          <button className="composer-clear" onClick={() => onChange([])}>
+            CLEAR ALL
+          </button>
+        )}
       </div>
       <div className="token-field" onClick={() => ref.current?.focus()}>
         {tokens.map((t) => (
@@ -109,6 +114,7 @@ export function SearchComposer({
         ))}
         <input
           ref={ref}
+          role="combobox"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={
@@ -117,6 +123,7 @@ export function SearchComposer({
           aria-label="Search tags"
           aria-autocomplete="list"
           aria-expanded={open}
+          aria-controls="search-tag-suggestions"
           onKeyDown={(e) => {
             if (e.key === "ArrowDown" && items.length) {
               e.preventDefault();
@@ -136,7 +143,7 @@ export function SearchComposer({
         />
       </div>
       {open && (
-        <div className="suggestions" role="listbox">
+        <div className="suggestions" role="listbox" id="search-tag-suggestions">
           {items.map((item, i) => {
             const [ns, ...rest] = item.value.split(":");
             return (

@@ -4,4 +4,4 @@ Primary deployment is native Windows because Hydrus and Tailscale already run on
 
 Production URL: `https://desktop-gtpsl86-1.tailddb64.ts.net`. Local health: `scripts/health.ps1`. No router change is required.
 
-Update: copy/pull the new source, retain `.env`, run the installer again. Rollback: keep the prior source directory or Git tag, stop the task, switch to that version, run `npm ci && npm run build`, then start the task. Uninstall with `scripts/uninstall-windows.ps1`; optionally delete this directory after confirming `.env` removal.
+Update: pull the new source, retain `.env`, and run the installer again. The installer stops duplicate supervisors, saves the current production `dist` as the single local rollback release, runs all build gates, and restarts production. Roll back with `scripts/rollback-windows.ps1`; the replaced build is retained as `.hydrus-pocket/failed-dist`. Uninstall with `scripts/uninstall-windows.ps1`; optionally delete this directory after confirming `.env` removal.

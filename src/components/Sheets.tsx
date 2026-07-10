@@ -1,6 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useState } from "react";
-import type { Filters, Media, QueryState, Service } from "../types";
+import {
+  defaultFilters,
+  type Filters,
+  type Media,
+  type QueryState,
+  type Service,
+} from "../types";
+import { sortOptions } from "../sorts";
 
 export function Sheet({
   title,
@@ -53,25 +60,80 @@ const Select = ({
 }) => (
   <label className="field">
     <span>{label}</span>
-    <select value={value} onChange={(e) => onChange(e.target.value)}>
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
       {children}
     </select>
   </label>
 );
 export function FilterSheet({
-  value,
+  query,
+  services,
   onApply,
   onClose,
 }: {
-  value: Filters;
-  onApply: (v: Filters) => void;
+  query: QueryState;
+  services: Service[];
+  onApply: (
+    v: Pick<
+      QueryState,
+      "filters" | "fileServiceKey" | "tagServiceKey" | "limit"
+    >,
+  ) => void;
   onClose: () => void;
 }) {
-  const [f, setF] = useState(value);
+  const [f, setF] = useState(query.filters);
+  const [fileServiceKey, setFileServiceKey] = useState(
+    query.fileServiceKey ?? "",
+  );
+  const [tagServiceKey, setTagServiceKey] = useState(query.tagServiceKey ?? "");
+  const [limit, setLimit] = useState(query.limit);
   const set = (k: keyof Filters, v: string) => setF({ ...f, [k]: v });
   return (
     <Sheet title="Filter results" onClose={onClose}>
       <div className="sheet-body filter-grid">
+        <h3 className="filter-section-title">Search domain</h3>
+        <Select
+          label="Files"
+          value={fileServiceKey}
+          onChange={setFileServiceKey}
+        >
+          <option value="">Combined local media</option>
+          {services
+            .filter((service) => service.group === "local_files")
+            .map((service) => (
+              <option value={service.key} key={service.key}>
+                {service.name}
+              </option>
+            ))}
+        </Select>
+        <Select label="Tags" value={tagServiceKey} onChange={setTagServiceKey}>
+          <option value="">All known tags</option>
+          {services
+            .filter((service) => service.group === "local_tags")
+            .map((service) => (
+              <option value={service.key} key={service.key}>
+                {service.name}
+              </option>
+            ))}
+        </Select>
+        <label className="field">
+          <span>Result limit</span>
+          <select
+            value={limit}
+            onChange={(event) => setLimit(Number(event.target.value))}
+          >
+            {[100, 250, 500, 1000, 2500, 5000, 10000].map((value) => (
+              <option value={value} key={value}>
+                {value.toLocaleString()}
+              </option>
+            ))}
+          </select>
+        </label>
+        <h3 className="filter-section-title">File filters</h3>
         <Select
           label="Media type"
           value={f.media}
@@ -168,11 +230,44 @@ export function FilterSheet({
           <option value="medium">30 sec – 5 min</option>
           <option value="long">5 – 30 min</option>
           <option value="epic">Over 30 min</option>
+          <option value="custom">Custom range</option>
         </Select>
+        {f.duration === "custom" && (
+          <div className="field-row">
+            <label className="field">
+              <span>Minimum seconds</span>
+              <input
+                inputMode="decimal"
+                value={f.durationMin}
+                onChange={(e) => set("durationMin", e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>Maximum seconds</span>
+              <input
+                inputMode="decimal"
+                value={f.durationMax}
+                onChange={(e) => set("durationMax", e.target.value)}
+              />
+            </label>
+          </div>
+        )}
         <div className="field-row">
           {(["minWidth", "minHeight", "minMegapixels"] as const).map((k, i) => (
             <label className="field" key={k}>
               <span>{["Min width", "Min height", "Min MP"][i]}</span>
+              <input
+                inputMode="decimal"
+                value={f[k]}
+                onChange={(e) => set(k, e.target.value)}
+              />
+            </label>
+          ))}
+        </div>
+        <div className="field-row">
+          {(["aspectMin", "aspectMax"] as const).map((k, i) => (
+            <label className="field" key={k}>
+              <span>{["Min aspect X:1", "Max aspect X:1"][i]}</span>
               <input
                 inputMode="decimal"
                 value={f[k]}
@@ -197,31 +292,24 @@ export function FilterSheet({
       <footer>
         <button
           className="secondary"
-          onClick={() =>
-            setF({
-              media: "all",
-              state: "all",
-              dateField: "import",
-              datePreset: "any",
-              dateFrom: "",
-              dateTo: "",
-              duration: "any",
-              minWidth: "",
-              minHeight: "",
-              minMegapixels: "",
-              minSizeMb: "",
-              maxSizeMb: "",
-              orientation: "any",
-              audio: "any",
-            })
-          }
+          onClick={() => {
+            setF(defaultFilters);
+            setFileServiceKey("");
+            setTagServiceKey("");
+            setLimit(500);
+          }}
         >
           Reset
         </button>
         <button
           className="primary"
           onClick={() => {
-            onApply(f);
+            onApply({
+              filters: f,
+              fileServiceKey: fileServiceKey || undefined,
+              tagServiceKey: tagServiceKey || undefined,
+              limit,
+            });
             onClose();
           }}
         >
@@ -231,21 +319,6 @@ export function FilterSheet({
     </Sheet>
   );
 }
-const sorts = [
-  [2, "Import date"],
-  [14, "Modified date"],
-  [19, "Archive date"],
-  [18, "Last viewed"],
-  [0, "File size"],
-  [1, "Duration"],
-  [5, "Width"],
-  [6, "Height"],
-  [8, "Resolution"],
-  [7, "Aspect ratio"],
-  [9, "Number of tags"],
-  [3, "File type"],
-  [4, "Random"],
-] as const;
 export function SortSheet({
   query,
   onApply,
@@ -260,7 +333,7 @@ export function SortSheet({
   return (
     <Sheet title="Sort results" onClose={onClose}>
       <div className="sheet-body sort-list">
-        {sorts.map(([id, label]) => (
+        {sortOptions.map(([id, label]) => (
           <label key={id}>
             <input
               type="radio"

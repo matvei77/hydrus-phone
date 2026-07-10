@@ -5,3 +5,5 @@ The browser speaks only to the same origin. Fastify serves the production React 
 Search returns ordered file IDs. The browser requests visible metadata in batches up to 128 while the gateway enforces 256. A row virtualizer mounts only visible/overscan cells. Thumbnail responses are privately cached; original media is `no-store`. Media Range headers and `206`, `Content-Range`, `Accept-Ranges`, and length headers are relayed.
 
 Tailscale Serve terminates tailnet HTTPS and proxies to the gateway at `127.0.0.1:47810`. Neither service binds publicly.
+
+`/api/health` reports diagnostic state even when Hydrus is unavailable. `/api/ready` is a strict readiness probe and returns 503 until the supported API and required permissions are available.

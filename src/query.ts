@@ -12,12 +12,21 @@ const dateName: Record<string, string> = {
   archive: "archived time",
   viewed: "last viewed time",
 };
+const decimalToRatio = (value: string) => {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return null;
+  const denominator = 1000;
+  const numerator = Math.round(number * denominator);
+  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+  const divisor = gcd(numerator, denominator);
+  return `${numerator / divisor}:${denominator / divisor}`;
+};
 
 export function filtersToPredicates(f: Filters, now = new Date()): string[] {
   const p: string[] = [];
   const mime: Record<string, string> = {
     images: "image",
-    animated: "animated image",
+    animated: "image/gif, image/apng, image/webp",
     video: "video",
     audio: "audio",
     documents: "application",
@@ -59,6 +68,10 @@ export function filtersToPredicates(f: Filters, now = new Date()): string[] {
     epic: ["system:duration > 30 minutes"],
   };
   if (durations[f.duration]) p.push(...durations[f.duration]);
+  if (f.duration === "custom") {
+    if (f.durationMin) p.push(`system:duration > ${f.durationMin} seconds`);
+    if (f.durationMax) p.push(`system:duration < ${f.durationMax} seconds`);
+  }
   if (f.minWidth) p.push(`system:width > ${Number(f.minWidth) - 1}`);
   if (f.minHeight) p.push(`system:height > ${Number(f.minHeight) - 1}`);
   if (f.minMegapixels)
@@ -68,6 +81,10 @@ export function filtersToPredicates(f: Filters, now = new Date()): string[] {
   if (f.orientation === "portrait") p.push("system:ratio taller than 1:1");
   if (f.orientation === "landscape") p.push("system:ratio wider than 1:1");
   if (f.orientation === "square") p.push("system:ratio is 1:1");
+  const aspectMin = decimalToRatio(f.aspectMin);
+  const aspectMax = decimalToRatio(f.aspectMax);
+  if (aspectMin) p.push(`system:ratio wider than ${aspectMin}`);
+  if (aspectMax) p.push(`system:ratio taller than ${aspectMax}`);
   return p;
 }
 

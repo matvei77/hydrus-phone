@@ -1,17 +1,102 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { api } from "../api";
+import { classifyMedia } from "../media";
+import { scrollStorageKey } from "../storage";
 import type { Media, Service } from "../types";
 import { formatDuration, InfoSheet, Sheet } from "./Sheets";
 
-const kind = (m: Media) => {
-  const e = m.ext.toLowerCase();
-  if (["jpg", "jpeg", "png", "webp", "gif", "bmp", "avif"].includes(e))
-    return "image";
-  if (["mp4", "webm", "m4v"].includes(e)) return "video";
-  if (["mp3", "ogg", "wav", "m4a", "flac"].includes(e)) return "audio";
-  return "other";
-};
+function ZoomableImage({
+  src,
+  onZoomChange,
+}: {
+  src: string;
+  onZoomChange: (zoomed: boolean) => void;
+}) {
+  const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
+  const gesture = useRef<{
+    distance?: number;
+    scale: number;
+    startX: number;
+    startY: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const lastTap = useRef(0);
+  const setScale = (scale: number, x = transform.x, y = transform.y) => {
+    const next = Math.max(1, Math.min(5, scale));
+    setTransform({ scale: next, x: next === 1 ? 0 : x, y: next === 1 ? 0 : y });
+    onZoomChange(next > 1);
+  };
+  return (
+    <div
+      className="zoom-stage"
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        setScale(transform.scale > 1 ? 1 : 2.5);
+      }}
+      onTouchStart={(event) => {
+        if (event.touches.length === 2) {
+          const dx = event.touches[0].clientX - event.touches[1].clientX;
+          const dy = event.touches[0].clientY - event.touches[1].clientY;
+          gesture.current = {
+            distance: Math.hypot(dx, dy),
+            scale: transform.scale,
+            startX: 0,
+            startY: 0,
+            x: transform.x,
+            y: transform.y,
+          };
+        } else if (event.touches.length === 1) {
+          const now = Date.now();
+          if (now - lastTap.current < 280) {
+            setScale(transform.scale > 1 ? 1 : 2.5);
+            lastTap.current = 0;
+          } else {
+            lastTap.current = now;
+          }
+          gesture.current = {
+            scale: transform.scale,
+            startX: event.touches[0].clientX,
+            startY: event.touches[0].clientY,
+            x: transform.x,
+            y: transform.y,
+          };
+        }
+      }}
+      onTouchMove={(event) => {
+        const start = gesture.current;
+        if (!start) return;
+        if (event.touches.length === 2 && start.distance) {
+          event.preventDefault();
+          const dx = event.touches[0].clientX - event.touches[1].clientX;
+          const dy = event.touches[0].clientY - event.touches[1].clientY;
+          setScale(start.scale * (Math.hypot(dx, dy) / start.distance));
+        } else if (event.touches.length === 1 && transform.scale > 1) {
+          event.preventDefault();
+          setTransform((current) => ({
+            ...current,
+            x: start.x + event.touches[0].clientX - start.startX,
+            y: start.y + event.touches[0].clientY - start.startY,
+          }));
+        }
+      }}
+      onTouchEnd={() => {
+        gesture.current = null;
+      }}
+    >
+      <img
+        className="viewer-image"
+        src={src}
+        alt=""
+        draggable={false}
+        style={{
+          transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(${transform.scale})`,
+        }}
+      />
+    </div>
+  );
+}
 
 export function ResultsGrid({
   fileIds,
@@ -19,15 +104,20 @@ export function ResultsGrid({
   density,
   onNeed,
   onOpen,
+  scrollKey,
+  selectedId,
 }: {
   fileIds: number[];
   media: Map<number, Media>;
   density: number;
   onNeed: (ids: number[]) => void;
   onOpen: (index: number) => void;
+  scrollKey: string;
+  selectedId?: number;
 }) {
   const parent = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(390);
+  const storageKey = scrollStorageKey(scrollKey);
   useEffect(() => {
     const ob = new ResizeObserver((e) => setWidth(e[0].contentRect.width));
     if (parent.current) ob.observe(parent.current);
@@ -46,6 +136,11 @@ export function ResultsGrid({
     estimateSize: () => cell + gap,
     overscan: 4,
   });
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(storageKey) ?? 0);
+    const frame = requestAnimationFrame(() => virtual.scrollToOffset(saved));
+    return () => cancelAnimationFrame(frame);
+  }, [virtual, storageKey, rows, width]);
   const visible = virtual.getVirtualItems();
   useEffect(() => {
     const ids = virtual
@@ -57,7 +152,19 @@ export function ResultsGrid({
     if (ids.length) onNeed([...new Set(ids)].slice(0, 256));
   }, [virtual, cols, fileIds, media, onNeed]);
   return (
-    <div className="grid-scroll" ref={parent} id="results-scroll">
+    <div
+      className="grid-scroll"
+      ref={parent}
+      id="results-scroll"
+      onScroll={(event) => {
+        if (selectedId === undefined) {
+          localStorage.setItem(
+            storageKey,
+            String(event.currentTarget.scrollTop),
+          );
+        }
+      }}
+    >
       <div className="virtual-grid" style={{ height: virtual.getTotalSize() }}>
         {visible.map((row) => (
           <div
@@ -76,9 +183,10 @@ export function ResultsGrid({
                 const index = row.index * cols + col;
                 return (
                   <button
-                    className="media-card"
+                    className={`media-card ${selectedId === id ? "selected" : ""}`}
                     key={id}
                     onClick={() => onOpen(index)}
+                    aria-current={selectedId === id ? "true" : undefined}
                     aria-label={m ? `Open ${m.filetypeHuman}` : "Loading media"}
                   >
                     {m ? (
@@ -91,7 +199,9 @@ export function ResultsGrid({
                         <span className="media-flags">
                           {m.inbox && <i title="Inbox">IN</i>}
                           {m.duration && <i>{formatDuration(m.duration)}</i>}
-                          {kind(m) === "other" && <i>FILE</i>}
+                          {classifyMedia(m) === "image" &&
+                            (m.numFrames ?? 1) > 1 && <i>ANIM</i>}
+                          {classifyMedia(m) === "other" && <i>FILE</i>}
                         </span>
                         <span className="ext">{m.ext}</span>
                       </>
@@ -116,6 +226,7 @@ export function Viewer({
   onNeed,
   onClose,
   onChanged,
+  onPositionChange,
 }: {
   index: number;
   fileIds: number[];
@@ -124,15 +235,27 @@ export function Viewer({
   onNeed: (ids: number[]) => void;
   onClose: () => void;
   onChanged: (id: number) => void;
+  onPositionChange: (position: number) => void;
 }) {
   const [position, setPosition] = useState(index);
   const [controls, setControls] = useState(true);
   const [info, setInfo] = useState(false);
   const [edit, setEdit] = useState(false);
   const [stateBusy, setStateBusy] = useState(false);
+  const [imageZoomed, setImageZoomed] = useState(false);
+  const [originalQuality, setOriginalQuality] = useState(false);
   const [touch, setTouch] = useState<{ x: number; y: number } | null>(null);
+  const onPositionChangeRef = useRef(onPositionChange);
+  useEffect(() => {
+    onPositionChangeRef.current = onPositionChange;
+  }, [onPositionChange]);
   const id = fileIds[position];
   const m = media.get(id);
+  useEffect(() => {
+    setOriginalQuality(false);
+    setImageZoomed(false);
+  }, [id]);
+  useEffect(() => onPositionChangeRef.current(position), [position]);
   useEffect(() => {
     onNeed(
       fileIds
@@ -153,9 +276,10 @@ export function Viewer({
   const move = (d: number) =>
     setPosition((p) => Math.max(0, Math.min(fileIds.length - 1, p + d)));
   const toggleArchive = async () => {
+    if (!m) return;
     setStateBusy(true);
     try {
-      await api.setState([id], m?.inbox ? "archive" : "unarchive");
+      await api.setState([m.hash], m.inbox ? "archive" : "unarchive");
       onChanged(id);
     } finally {
       setStateBusy(false);
@@ -170,17 +294,26 @@ export function Viewer({
         </button>
       </div>
     );
-  const type = kind(m);
+  const type = classifyMedia(m);
   const mediaUrl = `/api/media/${id}/file`;
   return (
     <div
       className="viewer"
       onClick={() => setControls((c) => !c)}
-      onTouchStart={(e) =>
-        setTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY })
-      }
+      onTouchStart={(e) => {
+        if ((e.target as Element).closest("video, audio, .sheet")) {
+          setTouch(null);
+          return;
+        }
+        setTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+      }}
       onTouchEnd={(e) => {
+        if ((e.target as Element).closest("video, audio, .sheet")) return;
         if (!touch) return;
+        if (type === "image" && imageZoomed) {
+          setTouch(null);
+          return;
+        }
         const dx = e.changedTouches[0].clientX - touch.x,
           dy = e.changedTouches[0].clientY - touch.y;
         if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy))
@@ -191,7 +324,11 @@ export function Viewer({
       }}
     >
       {type === "image" && (
-        <img className="viewer-image" src={mediaUrl} alt="" />
+        <ZoomableImage
+          key={`${id}:${originalQuality}`}
+          src={originalQuality ? mediaUrl : `/api/media/${id}/thumbnail`}
+          onZoomChange={setImageZoomed}
+        />
       )}
       {type === "video" && (
         <video
@@ -206,7 +343,16 @@ export function Viewer({
       )}{" "}
       {type === "audio" && (
         <div className="audio-stage">
-          <img src={`/api/media/${id}/thumbnail`} alt="" />
+          <div className="audio-art">
+            <strong>AUDIO</strong>
+            <img
+              src={`/api/media/${id}/thumbnail`}
+              alt=""
+              onError={(event) => {
+                event.currentTarget.hidden = true;
+              }}
+            />
+          </div>
           <span>AUDIO / {m.ext.toUpperCase()}</span>
           <audio
             src={mediaUrl}
@@ -250,6 +396,20 @@ export function Viewer({
             {position + 1} / {fileIds.length}
           </span>
           <div className="viewer-header-actions">
+            {type === "image" && (
+              <button
+                className="viewer-button viewer-state-button"
+                onClick={() => setOriginalQuality(true)}
+                disabled={originalQuality}
+                aria-label={
+                  originalQuality
+                    ? "Original quality loaded"
+                    : "Load original quality"
+                }
+              >
+                {originalQuality ? "HQ ✓" : "HQ"}
+              </button>
+            )}
             <button
               className="viewer-button viewer-state-button"
               onClick={toggleArchive}
@@ -333,15 +493,44 @@ function TagEditor({
   const [service, setService] = useState(tagServices[0]?.key ?? "");
   const existing = media.storageTags[service] ?? [];
   const [add, setAdd] = useState("");
+  const [suggestions, setSuggestions] = useState<
+    { value: string; count: number | null }[]
+  >([]);
   const [remove, setRemove] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const activeAdd = add.split(",").at(-1)?.trim() ?? "";
+  useEffect(() => {
+    if (!activeAdd) {
+      setSuggestions([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      api
+        .tags(activeAdd, service, controller.signal, "storage")
+        .then((result) => setSuggestions(result.tags.slice(0, 8)))
+        .catch((reason) => {
+          if (reason.name !== "AbortError") setSuggestions([]);
+        });
+    }, 220);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [activeAdd, service]);
+  const acceptSuggestion = (tag: string) => {
+    const parts = add.split(",");
+    parts[parts.length - 1] = tag;
+    setAdd(`${parts.map((part) => part.trim()).join(", ")}, `);
+    setSuggestions([]);
+  };
   const save = async () => {
     setBusy(true);
     setError("");
     try {
       await api.mutateTags({
-        fileId: media.fileId,
+        hash: media.hash,
         serviceKey: service,
         add: add
           .split(",")
@@ -383,6 +572,24 @@ function TagEditor({
             placeholder="creator:name, series:title"
           />
         </label>
+        {suggestions.length > 0 && (
+          <div
+            className="tag-suggestions"
+            role="listbox"
+            aria-label="Tag suggestions"
+          >
+            {suggestions.map((suggestion) => (
+              <button
+                key={suggestion.value}
+                role="option"
+                onClick={() => acceptSuggestion(suggestion.value)}
+              >
+                <span>{suggestion.value}</span>
+                <small>{suggestion.count?.toLocaleString() ?? ""}</small>
+              </button>
+            ))}
+          </div>
+        )}
         <h3>Current local tags</h3>
         <div className="removable-tags">
           {existing.map((tag) => (

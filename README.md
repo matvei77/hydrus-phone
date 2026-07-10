@@ -12,4 +12,4 @@ Hydrus Pocket is a phone-first PWA for privately searching, filtering, sorting, 
 
 Useful commands: `npm run check`, `scripts/health.ps1`, `Get-Content .hydrus-pocket/logs/gateway.log -Tail 100`.
 
-See [deployment](docs/DEPLOYMENT.md), [operations](docs/OPERATIONS.md), and the [release checklist](docs/RELEASE_CHECKLIST.md).
+See the [production-readiness audit](docs/AUDIT.md), [deployment](docs/DEPLOYMENT.md), [operations](docs/OPERATIONS.md), and [release checklist](docs/RELEASE_CHECKLIST.md). Use `scripts/rollback-windows.ps1` to restore the immediately previous production build.

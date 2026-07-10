@@ -23,9 +23,14 @@ const call = async <T>(
 export const api = {
   health: (signal?: AbortSignal) =>
     call<Health>("/api/health", undefined, signal),
-  tags: (q: string, tagServiceKey?: string, signal?: AbortSignal) =>
+  tags: (
+    q: string,
+    tagServiceKey?: string,
+    signal?: AbortSignal,
+    mode: "display" | "storage" = "display",
+  ) =>
     call<{ tags: { value: string; count: number | null }[] }>(
-      `/api/tags?q=${encodeURIComponent(q)}${tagServiceKey ? `&tagServiceKey=${tagServiceKey}` : ""}`,
+      `/api/tags?q=${encodeURIComponent(q)}&mode=${mode}${tagServiceKey ? `&tagServiceKey=${tagServiceKey}` : ""}`,
       undefined,
       signal,
     ),
@@ -46,9 +51,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  setState: (fileIds: number[], action: "archive" | "unarchive") =>
+  setState: (hashes: string[], action: "archive" | "unarchive") =>
     call<{ ok: boolean }>("/api/files/state", {
       method: "POST",
-      body: JSON.stringify({ fileIds, action }),
+      body: JSON.stringify({ hashes, action }),
     }),
 };

@@ -8,12 +8,16 @@
 - [x] Bounded search/metadata, virtualization, cancellation, Range streaming
 - [x] Search/filter/sort/saved/view/tag/archive implementation
 - [x] Installable PWA with bounded thumbnail cache and uncached originals
-- [x] Typecheck and production build
+- [x] Lint, typecheck, 28 Vitest tests, and production build
+- [x] 18 mocked Playwright workflows across Android, desktop, and dark mode
+- [x] Axe WCAG A/AA scan: no serious or critical findings
+- [x] Live deployed read-only Playwright workflow
 - [x] Production dependency audit: zero known vulnerabilities
 - [x] Real Hydrus search, autocomplete, metadata, thumbnail, video, and unsupported-file responses
 - [x] Real byte Range request returned 206 with correct Content-Range
 - [x] Tailnet-only HTTPS health returned 200
 - [x] Startup supervisor recovered a killed gateway process within five seconds
+- [x] RC2-to-RC1 rollback and RC2 restore exercised successfully
 
 ## Awaiting external/manual verification
 

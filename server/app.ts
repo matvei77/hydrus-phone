@@ -25,18 +25,21 @@ const batchSchema = z.object({
 });
 const tagMutationSchema = z
   .object({
-    fileId: z.number().int().positive(),
+    hash: z.string().regex(/^[0-9a-f]{64}$/i),
     serviceKey: z.string().regex(/^[0-9a-f]{64}$/i),
     add: z.array(z.string()).max(100).default([]),
     remove: z.array(z.string()).max(100).default([]),
   })
   .refine((v) => v.add.length + v.remove.length > 0);
 const fileMutationSchema = z.object({
-  fileIds: z.array(z.number().int().positive()).min(1).max(256),
+  hashes: z
+    .array(z.string().regex(/^[0-9a-f]{64}$/i))
+    .min(1)
+    .max(256),
   action: z.enum(["archive", "unarchive"]),
 });
 
-const normalizeMetadata = (item: any) => {
+export const normalizeMetadata = (item: any) => {
   const tags = item.tags ?? {};
   const displayTags: Record<string, string[]> = {};
   const storageTags: Record<string, string[]> = {};
@@ -77,7 +80,22 @@ const normalizeMetadata = (item: any) => {
   };
 };
 
-export async function buildApp(config: Config) {
+export function buildTagMutationBody(input: z.infer<typeof tagMutationSchema>) {
+  const actions: Record<string, string[]> = {};
+  if (input.add.length) actions["0"] = input.add;
+  if (input.remove.length) actions["1"] = input.remove;
+  return {
+    hashes: [input.hash],
+    service_keys_to_actions_to_tags: { [input.serviceKey]: actions },
+    override_previously_deleted_mappings: true,
+    create_new_deleted_mappings: false,
+  };
+}
+
+export async function buildApp(
+  config: Config,
+  options: { serveStatic?: boolean } = {},
+) {
   const app = Fastify({
     logger: {
       level: config.LOG_LEVEL,
@@ -105,7 +123,10 @@ export async function buildApp(config: Config) {
   await app.register(compress);
   await app.register(rateLimit, { max: 180, timeWindow: "1 minute" });
   app.addHook("onSend", async (request, reply, payload) => {
-    if (request.url.startsWith("/api/") && !request.url.includes("/thumbnail")) {
+    if (
+      request.url.startsWith("/api/") &&
+      !request.url.includes("/thumbnail")
+    ) {
       reply.header("cache-control", "private, no-store");
     }
     return payload;
@@ -113,24 +134,20 @@ export async function buildApp(config: Config) {
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof z.ZodError)
-      return reply
-        .code(400)
-        .send({
-          code: "INVALID_REQUEST",
-          message: "The request contains invalid values.",
-          details: error.flatten(),
-        });
+      return reply.code(400).send({
+        code: "INVALID_REQUEST",
+        message: "The request contains invalid values.",
+        details: error.flatten(),
+      });
     if (error instanceof HydrusError)
       return reply
         .code(error.status >= 500 ? error.status : error.status)
         .send({ code: error.code, message: error.message });
     app.log.error(error);
-    return reply
-      .code(500)
-      .send({
-        code: "INTERNAL_ERROR",
-        message: "The gateway could not complete the request.",
-      });
+    return reply.code(500).send({
+      code: "INTERNAL_ERROR",
+      message: "The gateway could not complete the request.",
+    });
   });
 
   app.get("/api/health", async () => {
@@ -160,14 +177,29 @@ export async function buildApp(config: Config) {
           !permissions.permits_everything &&
           !permissions.basic_permissions?.includes(permission),
       );
+      const extraPermissions = (permissions.basic_permissions ?? []).filter(
+        (permission: number) => !requiredPermissions.includes(permission),
+      );
+      const unsupportedApi = version.version < 83;
       return {
         gateway: "ok",
-        hydrus: missingPermissions.length ? "error" : "ok",
-        version: "0.1.0-rc.1",
+        hydrus: missingPermissions.length || unsupportedApi ? "error" : "ok",
+        version: "0.1.0-rc.2",
         hydrusVersion: version.hydrus_version,
         apiVersion: version.version,
         permissions: permissions.basic_permissions,
         missingPermissions,
+        extraPermissions,
+        code: unsupportedApi
+          ? "HYDRUS_API_UNSUPPORTED"
+          : missingPermissions.length
+            ? "HYDRUS_PERMISSION"
+            : undefined,
+        message: unsupportedApi
+          ? `Hydrus Client API v${version.version} is unsupported; v83 or newer is required.`
+          : missingPermissions.length
+            ? `Hydrus Pocket is missing required permissions: ${missingPermissions.join(", ")}.`
+            : undefined,
         permitsEverything: permissions.permits_everything,
         services: all,
         appUrl: config.APP_URL ?? null,
@@ -179,7 +211,7 @@ export async function buildApp(config: Config) {
         return {
           gateway: "ok",
           hydrus: "error",
-          version: "0.1.0-rc.1",
+          version: "0.1.0-rc.2",
           code: error.code,
           message: error.message,
           lastSuccess: hydrus.getLastSuccess(),
@@ -189,32 +221,60 @@ export async function buildApp(config: Config) {
     }
   });
 
+  app.get("/api/ready", async (_request, reply) => {
+    try {
+      const [version, permissions] = await Promise.all([
+        hydrus.request<any>("/api_version"),
+        hydrus.request<any>("/verify_access_key"),
+      ]);
+      const missingPermissions = [1, 2, 3].filter(
+        (permission) =>
+          !permissions.permits_everything &&
+          !permissions.basic_permissions?.includes(permission),
+      );
+      if (version.version < 83 || missingPermissions.length) {
+        return reply.code(503).send({
+          ready: false,
+          code:
+            version.version < 83
+              ? "HYDRUS_API_UNSUPPORTED"
+              : "HYDRUS_PERMISSION",
+        });
+      }
+      return { ready: true };
+    } catch (error) {
+      return reply.code(503).send({
+        ready: false,
+        code: error instanceof HydrusError ? error.code : "HYDRUS_UNAVAILABLE",
+      });
+    }
+  });
+
   app.get("/api/tags", async (request) => {
     const query = z
       .object({
         q: z.string().trim().max(200),
         tagServiceKey: z.string().optional(),
+        mode: z.enum(["display", "storage"]).default("display"),
       })
       .parse(request.query);
     if (query.q.length < 1) return { tags: [] };
     const result = await hydrus.request<any>("/add_tags/search_tags", {
       query: {
         search: query.q.endsWith("*") ? query.q : `${query.q}*`,
-        tag_display_type: "display",
+        tag_display_type: query.mode,
         tag_service_key: query.tagServiceKey,
       },
     });
     return {
-      tags: (result.tags ?? [])
-        .slice(0, 50)
-        .map((tag: any) =>
-          typeof tag === "string"
-            ? { value: tag, count: null }
-            : {
-                value: tag.value ?? tag.tag,
-                count: tag.count ?? tag.counts?.[0] ?? null,
-              },
-        ),
+      tags: (result.tags ?? []).slice(0, 50).map((tag: any) =>
+        typeof tag === "string"
+          ? { value: tag, count: null }
+          : {
+              value: tag.value ?? tag.tag,
+              count: tag.count ?? tag.counts?.[0] ?? null,
+            },
+      ),
     };
   });
 
@@ -250,11 +310,14 @@ export async function buildApp(config: Config) {
     const params = z
       .object({ fileId: z.coerce.number().int().positive() })
       .parse(request.params);
+    const controller = new AbortController();
+    request.raw.once("aborted", () => controller.abort());
+    reply.raw.once("close", () => controller.abort());
     const response = await hydrus.stream(
       path,
       { file_id: params.fileId },
       request.headers.range,
-      request.raw.signal,
+      controller.signal,
     );
     for (const key of [
       "content-type",
@@ -287,17 +350,9 @@ export async function buildApp(config: Config) {
 
   app.post("/api/tags/mutate", async (request) => {
     const input = tagMutationSchema.parse(request.body);
-    const actions: Record<string, string[]> = {};
-    if (input.add.length) actions["0"] = input.add;
-    if (input.remove.length) actions["1"] = input.remove;
     await hydrus.request("/add_tags/add_tags", {
       method: "POST",
-      body: {
-        file_ids: [input.fileId],
-        service_keys_to_actions_to_tags: { [input.serviceKey]: actions },
-        override_previously_deleted_mappings: true,
-        create_new_deleted_mappings: false,
-      },
+      body: buildTagMutationBody(input),
     });
     return { ok: true };
   });
@@ -306,7 +361,7 @@ export async function buildApp(config: Config) {
     const input = fileMutationSchema.parse(request.body);
     await hydrus.request(`/add_files/${input.action}_files`, {
       method: "POST",
-      body: { file_ids: input.fileIds },
+      body: { hashes: input.hashes },
     });
     return { ok: true };
   });
@@ -316,16 +371,19 @@ export async function buildApp(config: Config) {
     "..",
     "client",
   );
-  await app.register(staticPlugin, { root: clientRoot, wildcard: false });
+  const serveStatic = options.serveStatic ?? true;
+  if (serveStatic) {
+    await app.register(staticPlugin, { root: clientRoot, wildcard: false });
+  }
   app.setNotFoundHandler((request, reply) =>
     request.url.startsWith("/api/")
-      ? reply
-          .code(404)
-          .send({
-            code: "NOT_FOUND",
-            message: "Unknown application API route.",
-          })
-      : reply.sendFile("index.html"),
+      ? reply.code(404).send({
+          code: "NOT_FOUND",
+          message: "Unknown application API route.",
+        })
+      : serveStatic
+        ? reply.sendFile("index.html")
+        : reply.code(404).send({ code: "NOT_FOUND" }),
   );
   return app;
 }

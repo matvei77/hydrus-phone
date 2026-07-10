@@ -3,8 +3,32 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 if (-not (Test-Path ".env")) { throw "Missing .env. Run scripts/request-hydrus-access.ps1 after opening Hydrus permission registration." }
-npm ci
-npm run check
+
+Get-CimInstance Win32_Process |
+  Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like "*scripts\start-production.ps1*" } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+$listener = Get-NetTCPConnection -LocalPort 47810 -State Listen -ErrorAction SilentlyContinue
+if ($listener) { Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue }
+
+$rollback = Join-Path $root ".hydrus-pocket\rollback\dist"
+if (Test-Path "dist") {
+  Remove-Item -LiteralPath $rollback -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $rollback) | Out-Null
+  Copy-Item -LiteralPath "dist" -Destination $rollback -Recurse -Force
+}
+try {
+  npm ci
+  if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
+  npm run check
+  if ($LASTEXITCODE -ne 0) { throw "release checks failed" }
+} catch {
+  if (Test-Path $rollback) {
+    Remove-Item -LiteralPath "dist" -Recurse -Force -ErrorAction SilentlyContinue
+    Copy-Item -LiteralPath $rollback -Destination "dist" -Recurse -Force
+    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$root\scripts\start-production.ps1`""
+  }
+  throw
+}
 
 $taskName = "Hydrus Pocket Gateway"
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$root\scripts\start-production.ps1`""

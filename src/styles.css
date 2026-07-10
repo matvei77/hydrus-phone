@@ -127,6 +127,16 @@ button {
   letter-spacing: 0;
   text-transform: none;
 }
+.composer-clear {
+  border: 0;
+  padding: 0;
+  color: white;
+  background: transparent;
+  font:
+    600 10px Bahnschrift,
+    sans-serif;
+  letter-spacing: 0.08em;
+}
 .token-field {
   min-height: 54px;
   background: white;
@@ -363,6 +373,10 @@ button {
   outline: 3px solid var(--violet);
   outline-offset: 2px;
 }
+.media-card.selected {
+  outline: 3px solid var(--violet);
+  outline-offset: -3px;
+}
 .media-card img {
   width: 100%;
   height: 100%;
@@ -577,6 +591,15 @@ button {
   grid-template-columns: 1fr 1fr;
   gap: 15px 10px;
 }
+.filter-section-title {
+  grid-column: 1 / -1;
+  margin: 8px 0 -2px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #c8d4d0;
+  font:
+    500 16px Bahnschrift,
+    sans-serif;
+}
 .field {
   display: flex;
   flex-direction: column;
@@ -693,6 +716,27 @@ button {
   max-height: 260px;
   overflow: auto;
 }
+.tag-suggestions {
+  margin-top: -1px;
+  border: 1px solid #b9c7c2;
+  background: white;
+}
+.tag-suggestions button {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-bottom: 1px solid #e0e7e4;
+  padding: 0 10px;
+  color: var(--ink);
+  background: white;
+  text-align: left;
+}
+.tag-suggestions small {
+  color: var(--muted);
+}
 .removable-tags label {
   display: flex;
   gap: 8px;
@@ -718,7 +762,18 @@ button {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  touch-action: pinch-zoom;
+  touch-action: none;
+  transition: transform 0.12s ease-out;
+  user-select: none;
+}
+.zoom-stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
 }
 .viewer-video {
   width: 100%;
@@ -776,7 +831,9 @@ button {
 .viewer-state-button {
   width: auto;
   min-width: 54px;
-  font: 600 10px Bahnschrift, sans-serif;
+  font:
+    600 10px Bahnschrift,
+    sans-serif;
   letter-spacing: 0.08em;
   color: var(--lime);
 }
@@ -813,6 +870,25 @@ button {
   object-fit: cover;
   margin: auto;
   filter: saturate(0.5);
+}
+.audio-art {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: grid;
+  place-items: center;
+  margin: auto;
+  color: var(--lime);
+  border: 1px solid #37505b;
+  font:
+    500 35px Bahnschrift,
+    sans-serif;
+  letter-spacing: 0.12em;
+}
+.audio-art img {
+  position: absolute;
+  inset: 0;
+  margin: 0;
 }
 .audio-stage > span {
   font:
@@ -882,6 +958,19 @@ button {
     sans-serif;
   border-bottom: 1px solid #cdd8d4;
   padding-bottom: 9px;
+}
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #cdd8d4;
+}
+.section-heading h2 {
+  margin: 0;
+  padding-bottom: 9px;
+  font:
+    500 20px Bahnschrift,
+    sans-serif;
 }
 .saved-list {
   background: white;
@@ -1068,6 +1157,77 @@ button {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  html,
+  body,
+  #root,
+  .browse-page,
+  .sub-page {
+    color: #e8efec;
+    background: #0d1a21;
+  }
+  .results-bar,
+  .sheet,
+  .sheet footer,
+  .field select,
+  .field input,
+  .saved-list,
+  .saved-list > div > button:first-child,
+  .setting-row,
+  .suggestions,
+  .suggestions button,
+  .suggest-state,
+  .tag-suggestions,
+  .tag-suggestions button,
+  .density button {
+    color: #e8efec;
+    background: #14262f;
+  }
+  .token-field {
+    background: #f5f8f6;
+  }
+  .facts div,
+  .settings-facts div {
+    color: #e8efec;
+    background: #17303b;
+  }
+  .secondary {
+    color: #e8efec;
+    background: #29404a;
+  }
+  .media-card,
+  .skeleton {
+    background: #23363e;
+  }
+  .tag-group code {
+    color: #dce9e4;
+    background: #263b45;
+  }
+  .empty-copy,
+  .body-copy,
+  .setting-row span,
+  .saved-list span,
+  .result-state p,
+  .state-panel p,
+  .muted {
+    color: #a8bbc3;
+  }
+  .results-bar span,
+  .density span {
+    color: #b8c8ce;
+  }
+  .filter-section-title,
+  .sub-page section > h2,
+  .section-heading,
+  .results-bar,
+  .sheet > header,
+  .sheet footer,
+  .sort-list label,
+  .saved-list > div,
+  .removable-tags label {
+    border-color: #36505b;
   }
 }
 @keyframes shimmer {

@@ -31,6 +31,10 @@ describe("Hydrus query construction", () => {
       minWidth: "1920",
       maxSizeMb: "500",
       audio: "yes",
+      durationMin: "45",
+      durationMax: "120",
+      aspectMin: "1.2",
+      aspectMax: "2.4",
     };
     expect(filtersToPredicates(f, new Date("2026-07-10T12:00:00Z"))).toEqual(
       expect.arrayContaining([
@@ -42,8 +46,23 @@ describe("Hydrus query construction", () => {
         "system:width > 1919",
         "system:filesize < 500MB",
         "system:has audio",
+        "system:ratio wider than 6:5",
+        "system:ratio taller than 12:5",
       ]),
     );
+  });
+  it("translates custom duration bounds", () => {
+    expect(
+      filtersToPredicates({
+        ...defaultFilters,
+        duration: "custom",
+        durationMin: "45",
+        durationMax: "120",
+      }),
+    ).toEqual([
+      "system:duration > 45 seconds",
+      "system:duration < 120 seconds",
+    ]);
   });
   it("serializes and restores deterministic URL-safe state", () => {
     const q = {
