@@ -1,6 +1,6 @@
 # Status
 
-Phase: RC2 deployed; final release approval is blocked only by external/manual verification.
+Phase: RC3 deployed; live phone verification is in progress.
 
 Completed: greenfield React/Fastify PWA; secure credential/session boundary; complete search composer, filters, sorts, limits, bounded/virtualized result flow, mixed-media viewer, tag editor, archive API, saved/recent searches, health/settings/offline states, PWA, tests, Windows deployment/auto-start, security/operations documentation.
 

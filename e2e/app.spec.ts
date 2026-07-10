@@ -269,7 +269,7 @@ test("mixed-media viewer, Back, metadata, tags, and archive controls work", asyn
     page.getByRole("button", { name: "Close viewer" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Load original quality" }),
+    page.locator('.viewer-image[src="/api/media/1/file"]'),
   ).toBeVisible();
   expect(new URL(page.url()).searchParams.get("view")).toBe("1");
   await page.getByRole("button", { name: "Next file" }).click();

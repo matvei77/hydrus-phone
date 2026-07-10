@@ -8,9 +8,11 @@ import { formatDuration, InfoSheet, Sheet } from "./Sheets";
 
 function ZoomableImage({
   src,
+  placeholder,
   onZoomChange,
 }: {
   src: string;
+  placeholder: string;
   onZoomChange: (zoomed: boolean) => void;
 }) {
   const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
@@ -31,6 +33,7 @@ function ZoomableImage({
   return (
     <div
       className="zoom-stage"
+      style={{ backgroundImage: `url(${placeholder})` }}
       onDoubleClick={(event) => {
         event.stopPropagation();
         setScale(transform.scale > 1 ? 1 : 2.5);
@@ -243,7 +246,6 @@ export function Viewer({
   const [edit, setEdit] = useState(false);
   const [stateBusy, setStateBusy] = useState(false);
   const [imageZoomed, setImageZoomed] = useState(false);
-  const [originalQuality, setOriginalQuality] = useState(false);
   const [touch, setTouch] = useState<{ x: number; y: number } | null>(null);
   const onPositionChangeRef = useRef(onPositionChange);
   useEffect(() => {
@@ -252,7 +254,6 @@ export function Viewer({
   const id = fileIds[position];
   const m = media.get(id);
   useEffect(() => {
-    setOriginalQuality(false);
     setImageZoomed(false);
   }, [id]);
   useEffect(() => onPositionChangeRef.current(position), [position]);
@@ -325,8 +326,9 @@ export function Viewer({
     >
       {type === "image" && (
         <ZoomableImage
-          key={`${id}:${originalQuality}`}
-          src={originalQuality ? mediaUrl : `/api/media/${id}/thumbnail`}
+          key={id}
+          src={mediaUrl}
+          placeholder={`/api/media/${id}/thumbnail`}
           onZoomChange={setImageZoomed}
         />
       )}
@@ -396,20 +398,6 @@ export function Viewer({
             {position + 1} / {fileIds.length}
           </span>
           <div className="viewer-header-actions">
-            {type === "image" && (
-              <button
-                className="viewer-button viewer-state-button"
-                onClick={() => setOriginalQuality(true)}
-                disabled={originalQuality}
-                aria-label={
-                  originalQuality
-                    ? "Original quality loaded"
-                    : "Load original quality"
-                }
-              >
-                {originalQuality ? "HQ ✓" : "HQ"}
-              </button>
-            )}
             <button
               className="viewer-button viewer-state-button"
               onClick={toggleArchive}

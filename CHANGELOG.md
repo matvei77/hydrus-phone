@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-rc.3 — 2026-07-10
+
+- Opening an image now requests original quality immediately, while retaining its thumbnail only as a loading placeholder.
+
 ## 0.1.0-rc.2 — 2026-07-10
 
 - Corrected real Hydrus tag/archive mutations to use hashes rather than search-local file IDs.

@@ -774,6 +774,9 @@ button {
   justify-content: center;
   overflow: hidden;
   touch-action: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 .viewer-video {
   width: 100%;
