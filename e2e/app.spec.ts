@@ -52,6 +52,15 @@ const files = [
     duration: null,
     hasAudio: false,
   },
+  {
+    fileId: 5,
+    ext: "jxl",
+    filetypeHuman: "jxl",
+    width: 3200,
+    height: 1800,
+    duration: null,
+    hasAudio: false,
+  },
 ].map((file) => ({
   ...file,
   hash: String(file.fileId).padStart(64, "0"),
@@ -106,13 +115,16 @@ async function mockApi(page: Page) {
   await page.route("**/api/search", async (route) => {
     searches.push(route.request().postDataJSON());
     await route.fulfill({
-      json: { fileIds: [1, 2, 3, 4], limit: 500, limited: false },
+      json: { fileIds: [1, 2, 3, 4, 5], limit: 500, limited: false },
     });
   });
   await page.route("**/api/metadata", (route) =>
     route.fulfill({ json: { files } }),
   );
   await page.route("**/api/media/*/thumbnail", (route) =>
+    route.fulfill({ contentType: "image/svg+xml", body: pixel }),
+  );
+  await page.route("**/api/media/*/render", (route) =>
     route.fulfill({ contentType: "image/svg+xml", body: pixel }),
   );
   await page.route("**/api/media/*/file", (route) => {
@@ -353,6 +365,11 @@ test("mixed-media viewer, Back, metadata, tags, and archive controls work", asyn
   await page.getByRole("button", { name: "Close viewer" }).click();
   await page.getByRole("button", { name: "Open pdf" }).click();
   await expect(page.getByText("Preview unavailable")).toBeVisible();
+  await page.getByRole("button", { name: "Close viewer" }).click();
+  await page.getByRole("button", { name: "Open jxl" }).click();
+  await expect(
+    page.locator('.viewer-image[src="/api/media/5/render"]'),
+  ).toBeVisible();
 });
 
 test("viewer tags refine a collection and Back restores its prior page", async ({

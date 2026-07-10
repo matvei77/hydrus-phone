@@ -38,7 +38,7 @@ export type Media = {
   fileId: number;
   hash: string;
   size: number;
-  mime: number;
+  mime: number | string;
   ext: string;
   width: number | null;
   height: number | null;

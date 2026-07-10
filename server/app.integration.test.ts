@@ -40,6 +40,16 @@ beforeAll(async () => {
       response.writeHead(200, { "content-type": "image/jpeg" });
       return response.end("thumb");
     }
+    if (url.pathname === "/get_files/render") {
+      if (
+        url.searchParams.get("render_format") !== "1" ||
+        url.searchParams.get("render_quality") !== "95"
+      ) {
+        return response.writeHead(400).end('{"error":"bad render options"}');
+      }
+      response.writeHead(200, { "content-type": "image/jpeg" });
+      return response.end("rendered-jxl");
+    }
     if (url.pathname === "/get_files/file") {
       if (request.headers.range === "bytes=99-100") {
         response.writeHead(416, { "content-type": "application/json" });
@@ -136,6 +146,13 @@ describe("gateway routes", () => {
     });
     expect(thumbnail.statusCode).toBe(200);
     expect(thumbnail.headers["content-type"]).toContain("image/jpeg");
+    const rendered = await app.inject({
+      method: "GET",
+      url: "/api/media/9/render",
+    });
+    expect(rendered.statusCode).toBe(200);
+    expect(rendered.headers["content-type"]).toContain("image/jpeg");
+    expect(rendered.body).toBe("rendered-jxl");
     const range = await app.inject({
       method: "GET",
       url: "/api/media/9/file",

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-rc.6 — 2026-07-10
+
+- Added full JPEG XL viewing through Hydrus' native render endpoint, producing a quality-95 browser-compatible image while preserving zoom, swipe navigation, and bounded lookahead.
+- Added real-instance JXL render validation plus gateway, media-routing, and browser regression coverage.
+
 ## 0.1.0-rc.5 — 2026-07-10
 
 - Fixed Android double-tap zoom by separating touch-pointer detection from the browser's synthesized double-click event.

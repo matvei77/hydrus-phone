@@ -187,7 +187,7 @@ export async function buildApp(
       return {
         gateway: "ok",
         hydrus: missingPermissions.length || unsupportedApi ? "error" : "ok",
-        version: "0.1.0-rc.5",
+        version: "0.1.0-rc.6",
         hydrusVersion: version.hydrus_version,
         apiVersion: version.version,
         permissions: permissions.basic_permissions,
@@ -214,7 +214,7 @@ export async function buildApp(
         return {
           gateway: "ok",
           hydrus: "error",
-          version: "0.1.0-rc.5",
+          version: "0.1.0-rc.6",
           code: error.code,
           message: error.message,
           lastSuccess: hydrus.getLastSuccess(),
@@ -309,7 +309,12 @@ export async function buildApp(
     return { files: (result.metadata ?? []).map(normalizeMetadata) };
   });
 
-  const relay = async (request: any, reply: any, path: string) => {
+  const relay = async (
+    request: any,
+    reply: any,
+    path: string,
+    query: Record<string, unknown> = {},
+  ) => {
     const params = z
       .object({ fileId: z.coerce.number().int().positive() })
       .parse(request.params);
@@ -318,7 +323,7 @@ export async function buildApp(
     reply.raw.once("close", () => controller.abort());
     const response = await hydrus.stream(
       path,
-      { file_id: params.fileId },
+      { file_id: params.fileId, ...query },
       request.headers.range,
       controller.signal,
     );
@@ -349,6 +354,12 @@ export async function buildApp(
   );
   app.get("/api/media/:fileId/file", (req, rep) =>
     relay(req, rep, "/get_files/file"),
+  );
+  app.get("/api/media/:fileId/render", (req, rep) =>
+    relay(req, rep, "/get_files/render", {
+      render_format: 1,
+      render_quality: 95,
+    }),
   );
 
   app.post("/api/tags/mutate", async (request) => {

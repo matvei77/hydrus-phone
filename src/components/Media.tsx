@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { api } from "../api";
-import { classifyMedia } from "../media";
+import { classifyMedia, mediaFileUrl } from "../media";
 import { scrollStorageKey } from "../storage";
 import type { Media, Service } from "../types";
 import { formatDuration, InfoSheet, Sheet } from "./Sheets";
@@ -338,7 +338,7 @@ export function Viewer({
         if (!item) return;
         prefetching.current.add(item.fileId);
         try {
-          const response = await fetch(`/api/media/${item.fileId}/file`, {
+          const response = await fetch(mediaFileUrl(item), {
             cache: "no-store",
             signal: prefetchAbort.current.signal,
           });
@@ -421,7 +421,7 @@ export function Viewer({
       </div>
     );
   const type = classifyMedia(m);
-  const mediaUrl = `/api/media/${id}/file`;
+  const mediaUrl = mediaFileUrl(m);
   const imageUrl = prefetchedImages.current.get(id)?.url ?? mediaUrl;
   const allDisplayTags = [
     ...new Set(Object.values(m.displayTags).flatMap((tags) => tags)),
