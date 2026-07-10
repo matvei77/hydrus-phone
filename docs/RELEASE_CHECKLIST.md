@@ -18,6 +18,7 @@
 - [x] Tailnet-only HTTPS health returned 200
 - [x] Startup supervisor recovered a killed gateway process within five seconds
 - [x] RC2-to-RC1 rollback and RC2 restore exercised successfully
+- [x] Pull requests and `main` are protected by the automated release-gate workflow
 
 ## Awaiting external/manual verification
 
