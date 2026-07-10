@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { api } from "../api";
 import { classifyMedia } from "../media";
@@ -10,10 +10,12 @@ function ZoomableImage({
   src,
   placeholder,
   onZoomChange,
+  onReady,
 }: {
   src: string;
   placeholder: string;
   onZoomChange: (zoomed: boolean) => void;
+  onReady: () => void;
 }) {
   const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
   const gesture = useRef<{
@@ -93,6 +95,8 @@ function ZoomableImage({
         src={src}
         alt=""
         draggable={false}
+        onLoad={onReady}
+        onError={onReady}
         style={{
           transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(${transform.scale})`,
         }}
@@ -230,6 +234,7 @@ export function Viewer({
   onClose,
   onChanged,
   onPositionChange,
+  onSearchTag,
 }: {
   index: number;
   fileIds: number[];
@@ -239,43 +244,138 @@ export function Viewer({
   onClose: () => void;
   onChanged: (id: number) => void;
   onPositionChange: (position: number) => void;
+  onSearchTag: (tag: string, mode: "add" | "new") => void;
 }) {
   const [position, setPosition] = useState(index);
   const [controls, setControls] = useState(true);
   const [info, setInfo] = useState(false);
   const [edit, setEdit] = useState(false);
+  const [tagAction, setTagAction] = useState<string | null>(null);
   const [stateBusy, setStateBusy] = useState(false);
   const [imageZoomed, setImageZoomed] = useState(false);
+  const [mediaReady, setMediaReady] = useState(false);
   const [touch, setTouch] = useState<{ x: number; y: number } | null>(null);
+  const prefetchedImages = useRef(
+    new Map<number, { url: string; bytes: number }>(),
+  );
+  const prefetching = useRef(new Set<number>());
+  const prefetchAbort = useRef(new AbortController());
+  const prefetchBytes = useRef(0);
+  const [, setPrefetchVersion] = useState(0);
   const onPositionChangeRef = useRef(onPositionChange);
   useEffect(() => {
     onPositionChangeRef.current = onPositionChange;
   }, [onPositionChange]);
+  useEffect(() => setPosition(index), [index]);
   const id = fileIds[position];
   const m = media.get(id);
   useEffect(() => {
     setImageZoomed(false);
+    setMediaReady(false);
+    setTagAction(null);
   }, [id]);
-  useEffect(() => onPositionChangeRef.current(position), [position]);
+  const move = useCallback(
+    (delta: number) => {
+      const next = Math.max(
+        0,
+        Math.min(fileIds.length - 1, position + delta),
+      );
+      if (next === position) return;
+      setPosition(next);
+      onPositionChangeRef.current(next);
+    },
+    [fileIds.length, position],
+  );
   useEffect(() => {
     onNeed(
       fileIds
-        .slice(Math.max(0, position - 2), position + 3)
+        .slice(Math.max(0, position - 2), position + 21)
         .filter((x) => !media.has(x)),
     );
   }, [position, fileIds, media, onNeed]);
   useEffect(() => {
+    if (!mediaReady) return;
+    const queue = fileIds
+      .slice(position + 1, position + 21)
+      .map((fileId) => media.get(fileId))
+      .filter(
+        (item): item is Media =>
+          !!item &&
+          classifyMedia(item) === "image" &&
+          item.size <= 8 * 1024 * 1024 &&
+          !prefetchedImages.current.has(item.fileId) &&
+          !prefetching.current.has(item.fileId),
+      )
+      .slice(0, 16);
+    const worker = async () => {
+      while (queue.length && !prefetchAbort.current.signal.aborted) {
+        const item = queue.shift();
+        if (!item) return;
+        prefetching.current.add(item.fileId);
+        try {
+          const response = await fetch(`/api/media/${item.fileId}/file`, {
+            cache: "no-store",
+            signal: prefetchAbort.current.signal,
+          });
+          if (!response.ok) continue;
+          const blob = await response.blob();
+          if (blob.size > 8 * 1024 * 1024) continue;
+          while (
+            prefetchedImages.current.size >= 16 ||
+            prefetchBytes.current + blob.size > 48 * 1024 * 1024
+          ) {
+            const oldest = prefetchedImages.current.entries().next().value as
+              | [number, { url: string; bytes: number }]
+              | undefined;
+            if (!oldest) break;
+            URL.revokeObjectURL(oldest[1].url);
+            prefetchedImages.current.delete(oldest[0]);
+            prefetchBytes.current -= oldest[1].bytes;
+          }
+          const url = URL.createObjectURL(blob);
+          prefetchedImages.current.set(item.fileId, {
+            url,
+            bytes: blob.size,
+          });
+          prefetchBytes.current += blob.size;
+          setPrefetchVersion((version) => version + 1);
+        } catch (error) {
+          if ((error as Error).name !== "AbortError") {
+            // Lookahead is opportunistic; the normal media request remains the fallback.
+          }
+        } finally {
+          prefetching.current.delete(item.fileId);
+        }
+      }
+    };
+    void Promise.all([worker(), worker(), worker()]);
+  }, [position, fileIds, media, mediaReady]);
+  useEffect(
+    () => () => {
+      prefetchAbort.current.abort();
+      prefetchedImages.current.forEach((entry) =>
+        URL.revokeObjectURL(entry.url),
+      );
+      prefetchedImages.current.clear();
+    },
+    [],
+  );
+  useEffect(() => {
+    const cached = prefetchedImages.current.get(id);
+    if (cached) {
+      prefetchedImages.current.delete(id);
+      prefetchedImages.current.set(id, cached);
+    }
+  }, [id]);
+  useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft") setPosition((p) => Math.max(0, p - 1));
-      if (e.key === "ArrowRight")
-        setPosition((p) => Math.min(fileIds.length - 1, p + 1));
+      if (e.key === "ArrowLeft") move(-1);
+      if (e.key === "ArrowRight") move(1);
     };
     addEventListener("keydown", fn);
     return () => removeEventListener("keydown", fn);
-  }, [fileIds.length, onClose]);
-  const move = (d: number) =>
-    setPosition((p) => Math.max(0, Math.min(fileIds.length - 1, p + d)));
+  }, [move, onClose]);
   const toggleArchive = async () => {
     if (!m) return;
     setStateBusy(true);
@@ -297,19 +397,40 @@ export function Viewer({
     );
   const type = classifyMedia(m);
   const mediaUrl = `/api/media/${id}/file`;
+  const imageUrl = prefetchedImages.current.get(id)?.url ?? mediaUrl;
+  const allDisplayTags = [
+    ...new Set(Object.values(m.displayTags).flatMap((tags) => tags)),
+  ].sort((a, b) => a.localeCompare(b));
+  const displayTags = allDisplayTags.slice(0, 48);
+  const warmVideoIds = fileIds
+    .slice(position + 1, position + 9)
+    .filter((fileId) => {
+      const item = media.get(fileId);
+      return item && classifyMedia(item) === "video";
+    })
+    .slice(0, mediaReady ? 2 : 0);
   return (
     <div
-      className="viewer"
+      className={`viewer ${displayTags.length ? "has-tags" : ""}`}
       onClick={() => setControls((c) => !c)}
       onTouchStart={(e) => {
-        if ((e.target as Element).closest("video, audio, .sheet")) {
+        if (
+          (e.target as Element).closest(
+            "video, audio, .sheet, .viewer-tag-ribbon",
+          )
+        ) {
           setTouch(null);
           return;
         }
         setTouch({ x: e.touches[0].clientX, y: e.touches[0].clientY });
       }}
       onTouchEnd={(e) => {
-        if ((e.target as Element).closest("video, audio, .sheet")) return;
+        if (
+          (e.target as Element).closest(
+            "video, audio, .sheet, .viewer-tag-ribbon",
+          )
+        )
+          return;
         if (!touch) return;
         if (type === "image" && imageZoomed) {
           setTouch(null);
@@ -327,9 +448,10 @@ export function Viewer({
       {type === "image" && (
         <ZoomableImage
           key={id}
-          src={mediaUrl}
+          src={imageUrl}
           placeholder={`/api/media/${id}/thumbnail`}
           onZoomChange={setImageZoomed}
+          onReady={() => setMediaReady(true)}
         />
       )}
       {type === "video" && (
@@ -339,7 +461,10 @@ export function Viewer({
           poster={`/api/media/${id}/thumbnail`}
           controls
           autoPlay
+          preload="auto"
           playsInline
+          onLoadedMetadata={() => setMediaReady(true)}
+          onError={() => setMediaReady(true)}
           onClick={(e) => e.stopPropagation()}
         />
       )}{" "}
@@ -360,6 +485,9 @@ export function Viewer({
             src={mediaUrl}
             controls
             autoPlay
+            preload="auto"
+            onLoadedMetadata={() => setMediaReady(true)}
+            onError={() => setMediaReady(true)}
             onClick={(e) => e.stopPropagation()}
           />
         </div>
@@ -382,6 +510,37 @@ export function Viewer({
           </a>
         </div>
       )}
+      <div className="media-preloads" aria-hidden="true">
+        {warmVideoIds.map((fileId) => (
+          <video
+            key={fileId}
+            src={`/api/media/${fileId}/file`}
+            poster={`/api/media/${fileId}/thumbnail`}
+            preload="metadata"
+            muted
+          />
+        ))}
+      </div>
+      {displayTags.length > 0 && (
+        <aside
+          className="viewer-tag-ribbon"
+          aria-label="Tags on this file"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span>TAGS</span>
+          <div>
+            {displayTags.map((tag) => {
+              const colon = tag.indexOf(":");
+              return (
+                <button key={tag} onClick={() => setTagAction(tag)}>
+                  {colon > 0 && <small>{tag.slice(0, colon)}:</small>}
+                  {colon > 0 ? tag.slice(colon + 1) : tag}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+      )}
       <div
         className={`viewer-chrome ${controls ? "visible" : ""}`}
         onClick={(e) => e.stopPropagation()}
@@ -398,14 +557,6 @@ export function Viewer({
             {position + 1} / {fileIds.length}
           </span>
           <div className="viewer-header-actions">
-            <button
-              className="viewer-button viewer-state-button"
-              onClick={toggleArchive}
-              disabled={stateBusy}
-              aria-label={m.inbox ? "Archive file" : "Return file to inbox"}
-            >
-              {stateBusy ? "…" : m.inbox ? "ARC" : "IN"}
-            </button>
             <button
               className="viewer-button"
               onClick={() => setInfo(true)}
@@ -433,11 +584,13 @@ export function Viewer({
         </button>
       </div>
       {info && (
-        <InfoSheet
-          media={m}
-          services={services}
-          onClose={() => setInfo(false)}
-          onEdit={() => {
+          <InfoSheet
+            media={m}
+            services={services}
+            onClose={() => setInfo(false)}
+            stateBusy={stateBusy}
+            onToggleArchive={toggleArchive}
+            onEdit={() => {
             setInfo(false);
             setEdit(true);
           }}
@@ -453,6 +606,38 @@ export function Viewer({
             onChanged(id);
           }}
         />
+      )}
+      {tagAction && (
+        <Sheet title="Search with tag" onClose={() => setTagAction(null)}>
+          <div className="sheet-body tag-search-sheet">
+            <span>SELECTED TAG</span>
+            <strong>{tagAction}</strong>
+            <p>
+              Keep your current filters, or branch into a clean collection
+              view. Back returns to this file.
+            </p>
+          </div>
+          <footer>
+            <button
+              className="secondary"
+              onClick={() => {
+                setTagAction(null);
+                onSearchTag(tagAction, "new");
+              }}
+            >
+              Explore this tag
+            </button>
+            <button
+              className="primary"
+              onClick={() => {
+                setTagAction(null);
+                onSearchTag(tagAction, "add");
+              }}
+            >
+              Add to this search
+            </button>
+          </footer>
+        </Sheet>
       )}
     </div>
   );

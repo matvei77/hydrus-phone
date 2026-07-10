@@ -70,6 +70,7 @@ const pixel = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><r
 async function mockApi(page: Page) {
   const searches: unknown[] = [];
   const mutations: unknown[] = [];
+  const mediaRequests: number[] = [];
   let healthy = true;
   await page.route("**/api/health", (route) =>
     route.fulfill({
@@ -116,6 +117,7 @@ async function mockApi(page: Page) {
   );
   await page.route("**/api/media/*/file", (route) => {
     const id = Number(route.request().url().split("/").at(-2));
+    mediaRequests.push(id);
     const contentType =
       id === 2
         ? "video/mp4"
@@ -139,6 +141,7 @@ async function mockApi(page: Page) {
   return {
     searches,
     mutations,
+    mediaRequests,
     setHealthy: (value: boolean) => {
       healthy = value;
     },
@@ -173,8 +176,16 @@ test("search composition, domains, filters, sorting, and limits are deterministi
   await page.getByRole("button", { name: "Sort" }).click();
   await page.getByText("File size", { exact: true }).click();
   await page.getByRole("button", { name: "Apply sort" }).click();
-  await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect.poll(() => state.searches.length).toBeGreaterThan(1);
+  await expect
+    .poll(() => (state.searches.at(-1) as any)?.sort)
+    .toBe(0);
+  await expect
+    .poll(() =>
+      ((state.searches.at(-1) as any)?.predicates ?? []).includes(
+        "system:duration < 300 seconds",
+      ),
+    )
+    .toBe(true);
   const payload = state.searches.at(-1) as any;
   expect(payload).toMatchObject({
     limit: 1000,
@@ -219,7 +230,7 @@ test("browse surface has no critical WCAG A/AA violations", async ({
 test("viewer navigation and reload restore the exact grid position", async ({
   page,
 }) => {
-  await mockApi(page);
+  const state = await mockApi(page);
   const ids = Array.from({ length: 120 }, (_, index) => index + 1);
   await page.route("**/api/search", (route) =>
     route.fulfill({ json: { fileIds: ids, limit: 500, limited: false } }),
@@ -249,6 +260,7 @@ test("viewer navigation and reload restore the exact grid position", async ({
   const gridBox = await grid.boundingBox();
   if (!gridBox) throw new Error("grid has no visible bounds");
   await page.mouse.click(gridBox.x + 50, gridBox.y + 50);
+  await expect.poll(() => state.mediaRequests.length).toBeGreaterThan(3);
   await page.goBack();
   await expect
     .poll(() => grid.evaluate((element) => element.scrollTop))
@@ -259,9 +271,10 @@ test("viewer navigation and reload restore the exact grid position", async ({
     .toBe(600);
 });
 
-test("mixed-media viewer, Back, metadata, tags, and archive controls work", async ({
-  page,
-}) => {
+test("mixed-media viewer, Back, metadata, tags, and archive controls work", async (
+  { page },
+  testInfo,
+) => {
   const state = await mockApi(page);
   await page.goto("/");
   await page.getByRole("button", { name: "Open jpeg" }).click();
@@ -271,6 +284,21 @@ test("mixed-media viewer, Back, metadata, tags, and archive controls work", asyn
   await expect(
     page.locator('.viewer-image[src="/api/media/1/file"]'),
   ).toBeVisible();
+  if (process.env.CAPTURE_VISUALS) {
+    await page.screenshot({
+      path: `docs/screenshots/viewer-${testInfo.project.name}.png`,
+      fullPage: true,
+    });
+  }
+  await page
+    .getByRole("button", { name: "creator:test artist", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Explore this tag", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Close Search with tag", exact: true })
+    .click();
   expect(new URL(page.url()).searchParams.get("view")).toBe("1");
   await page.getByRole("button", { name: "Next file" }).click();
   expect(new URL(page.url()).searchParams.get("view")).toBe("2");
@@ -295,18 +323,67 @@ test("mixed-media viewer, Back, metadata, tags, and archive controls work", asyn
   await page.getByRole("button", { name: "Save tag changes" }).click();
   await expect.poll(() => state.mutations.length).toBe(1);
   expect(state.mutations[0]).toMatchObject({ hash: "2".padStart(64, "0") });
-  await page.getByRole("button", { name: "Archive file" }).click();
+  await page.getByRole("button", { name: "File information" }).click();
+  await page.getByRole("button", { name: "Move to archive" }).click();
   await expect.poll(() => state.mutations.length).toBe(2);
   expect(state.mutations[1]).toMatchObject({
     hashes: ["2".padStart(64, "0")],
     action: "archive",
   });
+  await page
+    .getByRole("button", { name: "Close File information", exact: true })
+    .click();
   await page.getByRole("button", { name: "Close viewer" }).click();
   await page.getByRole("button", { name: "Open mp3" }).click();
   await expect(page.locator("audio")).toBeVisible();
   await page.getByRole("button", { name: "Close viewer" }).click();
   await page.getByRole("button", { name: "Open pdf" }).click();
   await expect(page.getByText("Preview unavailable")).toBeVisible();
+});
+
+test("viewer tags refine a collection and Back restores its prior page", async ({
+  page,
+}) => {
+  const state = await mockApi(page);
+  await page.goto("/");
+  const input = page.getByLabel("Search tags");
+  await input.fill("cat");
+  await input.press("Enter");
+  await expect
+    .poll(() => ((state.searches.at(-1) as any)?.predicates ?? []).includes("cat"))
+    .toBe(true);
+  const beforeAdd = state.searches.length;
+  await page.getByRole("button", { name: "Open jpeg" }).click();
+  await page.getByRole("button", { name: "Next file", exact: true }).click();
+  await expect(page.locator("video")).toBeVisible();
+  await page
+    .getByRole("button", { name: "creator:test artist", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Add to this search", exact: true })
+    .click();
+  await expect.poll(() => state.searches.length).toBeGreaterThan(beforeAdd);
+  expect((state.searches.at(-1) as any).predicates).toEqual(
+    expect.arrayContaining(["cat", "creator:test artist"]),
+  );
+  expect(new URL(page.url()).searchParams.get("view")).toBeNull();
+  await page.goBack();
+  await expect(
+    page.getByRole("button", { name: "Close viewer", exact: true }),
+  ).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("view")).toBe("2");
+  await expect(page.locator("video")).toBeVisible();
+  await page
+    .getByRole("button", { name: "creator:test artist", exact: true })
+    .click();
+  const beforeExplore = state.searches.length;
+  await page
+    .getByRole("button", { name: "Explore this tag", exact: true })
+    .click();
+  await expect.poll(() => state.searches.length).toBeGreaterThan(beforeExplore);
+  expect((state.searches.at(-1) as any).predicates).toEqual([
+    "creator:test artist",
+  ]);
 });
 
 test("saved searches, restart state, offline direction, and PWA metadata work", async ({

@@ -39,6 +39,9 @@ const fileMutationSchema = z.object({
   action: z.enum(["archive", "unarchive"]),
 });
 
+export const isAssetRequest = (url: string) =>
+  url.startsWith("/assets/") || /\.[a-z0-9]+(?:\?|$)/i.test(url);
+
 export const normalizeMetadata = (item: any) => {
   const tags = item.tags ?? {};
   const displayTags: Record<string, string[]> = {};
@@ -184,7 +187,7 @@ export async function buildApp(
       return {
         gateway: "ok",
         hydrus: missingPermissions.length || unsupportedApi ? "error" : "ok",
-        version: "0.1.0-rc.3",
+        version: "0.1.0-rc.4",
         hydrusVersion: version.hydrus_version,
         apiVersion: version.version,
         permissions: permissions.basic_permissions,
@@ -211,7 +214,7 @@ export async function buildApp(
         return {
           gateway: "ok",
           hydrus: "error",
-          version: "0.1.0-rc.3",
+          version: "0.1.0-rc.4",
           code: error.code,
           message: error.message,
           lastSuccess: hydrus.getLastSuccess(),
@@ -373,17 +376,21 @@ export async function buildApp(
   );
   const serveStatic = options.serveStatic ?? true;
   if (serveStatic) {
-    await app.register(staticPlugin, { root: clientRoot, wildcard: false });
+    await app.register(staticPlugin, { root: clientRoot });
   }
-  app.setNotFoundHandler((request, reply) =>
-    request.url.startsWith("/api/")
-      ? reply.code(404).send({
-          code: "NOT_FOUND",
-          message: "Unknown application API route.",
-        })
-      : serveStatic
-        ? reply.sendFile("index.html")
-        : reply.code(404).send({ code: "NOT_FOUND" }),
-  );
+  app.setNotFoundHandler((request, reply) => {
+    if (request.url.startsWith("/api/")) {
+      return reply.code(404).send({
+        code: "NOT_FOUND",
+        message: "Unknown application API route.",
+      });
+    }
+    if (isAssetRequest(request.url)) {
+      return reply.code(404).type("text/plain").send("Asset not found");
+    }
+    return serveStatic
+      ? reply.sendFile("index.html")
+      : reply.code(404).send({ code: "NOT_FOUND" });
+  });
   return app;
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-rc.4 — 2026-07-10
+
+- Added volatile, byte-bounded lookahead for the next 16 small images and metadata/poster warming for upcoming videos.
+- Added a persistent viewer tag ribbon with actions to refine the current collection or explore a tag in a new Back-restorable search.
+- Chips, filters, sorts, and limits now apply immediately while previous results and metadata remain visible during refinement.
+- Moved archive/inbox management out of the primary viewer controls and into file information.
+
 ## 0.1.0-rc.3 — 2026-07-10
 
 - Opening an image now requests original quality immediately, while retaining its thumbnail only as a loading placeholder.

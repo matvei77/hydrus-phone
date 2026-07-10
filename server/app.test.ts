@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { buildTagMutationBody, normalizeMetadata } from "./app.js";
+import {
+  buildTagMutationBody,
+  isAssetRequest,
+  normalizeMetadata,
+} from "./app.js";
 
 describe("gateway normalization", () => {
+  it("distinguishes missing assets from client-side routes", () => {
+    expect(isAssetRequest("/assets/missing.js")).toBe(true);
+    expect(isAssetRequest("/icon-192.png?v=2")).toBe(true);
+    expect(isAssetRequest("/saved")).toBe(false);
+  });
+
   it("normalizes Hydrus extensions, timestamps, and display/storage tags", () => {
     expect(
       normalizeMetadata({

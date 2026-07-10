@@ -121,12 +121,32 @@ function Browse({
   const loadingIds = useRef(new Set<number>());
   const metadataController = useRef(new AbortController());
   const [notice, setNotice] = useState("");
+  const urlQuery = new URLSearchParams(location.search).get("q");
+  useEffect(() => {
+    if (!urlQuery) return;
+    try {
+      const restored = restoreQuery(urlQuery);
+      setDraft((current) =>
+        serializeQuery(current) === serializeQuery(restored)
+          ? current
+          : restored,
+      );
+      setSubmitted((current) =>
+        serializeQuery(current) === serializeQuery(restored)
+          ? current
+          : restored,
+      );
+    } catch {
+      setNotice("This search link is invalid. Your previous search is intact.");
+    }
+  }, [urlQuery]);
   useEffect(() => storage.saveQuery(draft), [draft]);
   const submittedKey = queryKey(submitted);
   const search = useQuery({
     queryKey: ["search", submittedKey],
     queryFn: ({ signal }) => api.search(toSearchPayload(submitted), signal),
     enabled: health?.hydrus === "ok",
+    placeholderData: (previous) => previous,
   });
   const fileIds = useMemo(() => search.data?.fileIds ?? [], [search.data]);
   const requestedView = new URLSearchParams(location.search).get("view");
@@ -149,19 +169,24 @@ function Browse({
   useEffect(() => {
     metadataController.current.abort();
     metadataController.current = new AbortController();
-    setMedia(new Map());
     loadingIds.current.clear();
     return () => metadataController.current.abort();
   }, [submittedKey]);
-  const submit = () => {
-    setSubmitted(draft);
-    storage.saveQuery(draft);
-    storage.addRecent(draft);
-    navigate(`/?q=${encodeURIComponent(serializeQuery(draft))}`, {
-      replace: true,
+  const runQuery = (
+    next: QueryState,
+    options: { replace?: boolean; recent?: boolean } = {},
+  ) => {
+    setDraft(next);
+    setSubmitted(next);
+    storage.saveQuery(next);
+    if (options.recent) storage.addRecent(next);
+    navigate(`/?q=${encodeURIComponent(serializeQuery(next))}`, {
+      replace: options.replace ?? true,
     });
     setNotice("");
   };
+  const submit = () => runQuery(draft, { replace: true, recent: true });
+  const refine = (next: QueryState) => runQuery(next, { replace: true });
   const need = useCallback(
     (ids: number[]) => {
       const wanted = ids.filter(
@@ -206,6 +231,7 @@ function Browse({
       );
     }
     const params = new URLSearchParams(location.search);
+    if (!params.has("q")) params.set("q", serializeQuery(submitted));
     params.set("view", String(fileIds[index]));
     navigate(
       { pathname: "/", search: params.toString() },
@@ -243,7 +269,7 @@ function Browse({
       <section className="search-panel">
         <SearchComposer
           tokens={draft.tokens}
-          onChange={(tokens) => setDraft({ ...draft, tokens })}
+          onChange={(tokens) => refine({ ...draft, tokens })}
           onSearch={submit}
           tagServiceKey={draft.tagServiceKey}
         />
@@ -333,11 +359,14 @@ function Browse({
                 {search.data.limited &&
                   `· limited to ${submitted.limit.toLocaleString()}`}
               </span>
+              {search.isFetching && !search.isPending && (
+                <em className="refining">FILTERING…</em>
+              )}
             </div>
             <div className="density">
               <button
                 onClick={() =>
-                  setDraft({
+                  refine({
                     ...draft,
                     density: Math.max(2, draft.density - 1),
                   })
@@ -349,7 +378,7 @@ function Browse({
               <span>GRID</span>
               <button
                 onClick={() =>
-                  setDraft({
+                  refine({
                     ...draft,
                     density: Math.min(5, draft.density + 1),
                   })
@@ -365,7 +394,7 @@ function Browse({
               The result limit can change how this sort is interpreted.{" "}
               <button
                 onClick={() =>
-                  setDraft({
+                  refine({
                     ...draft,
                     limit: Math.min(10000, draft.limit + 500),
                   })
@@ -406,14 +435,16 @@ function Browse({
         <FilterSheet
           query={draft}
           services={services}
-          onApply={(value) => setDraft({ ...draft, ...value })}
+          onApply={(value) => refine({ ...draft, ...value })}
           onClose={() => setFilters(false)}
         />
       )}{" "}
       {sorting && (
         <SortSheet
           query={draft}
-          onApply={(sort, ascending) => setDraft({ ...draft, sort, ascending })}
+          onApply={(sort, ascending) =>
+            refine({ ...draft, sort, ascending })
+          }
           onClose={() => setSorting(false)}
         />
       )}{" "}
@@ -425,6 +456,34 @@ function Browse({
           services={services}
           onNeed={need}
           onClose={closeViewer}
+          onSearchTag={(tag, mode) => {
+            const base =
+              mode === "add"
+                ? submitted
+                : {
+                    ...defaultQuery,
+                    density: draft.density,
+                    fileServiceKey: submitted.fileServiceKey,
+                    tagServiceKey: submitted.tagServiceKey,
+                  };
+            const alreadyIncluded = base.tokens.some(
+              (token) => token.kind === "include" && token.value === tag,
+            );
+            const next = alreadyIncluded
+              ? base
+              : {
+                  ...base,
+                  tokens: [
+                    ...base.tokens,
+                    {
+                      id: crypto.randomUUID(),
+                      kind: "include" as const,
+                      value: tag,
+                    },
+                  ],
+                };
+            runQuery(next, { replace: false, recent: true });
+          }}
           onPositionChange={(position) => {
             const params = new URLSearchParams(location.search);
             params.set("view", String(fileIds[position]));

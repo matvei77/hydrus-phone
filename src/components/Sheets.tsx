@@ -367,11 +367,15 @@ export function InfoSheet({
   services,
   onClose,
   onEdit,
+  onToggleArchive,
+  stateBusy,
 }: {
   media: Media;
   services: Service[];
   onClose: () => void;
   onEdit: () => void;
+  onToggleArchive: () => void;
+  stateBusy: boolean;
 }) {
   const grouped = new Map<string, string[]>();
   Object.values(media.displayTags)
@@ -434,6 +438,19 @@ export function InfoSheet({
           {services.filter((s) => s.group === "local_tags").length} tag services
           detected
         </p>
+        <div className="secondary-actions">
+          <button
+            className="text-button"
+            onClick={onToggleArchive}
+            disabled={stateBusy}
+          >
+            {stateBusy
+              ? "Updating…"
+              : media.inbox
+                ? "Move to archive"
+                : "Return to inbox"}
+          </button>
+        </div>
       </div>
     </Sheet>
   );
