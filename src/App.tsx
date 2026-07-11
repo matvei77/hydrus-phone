@@ -249,23 +249,6 @@ function Browse({
   };
   return (
     <main className="browse-page">
-      <header className="masthead">
-        <div>
-          <span className="brand-mark">
-            H<span>●</span>P
-          </span>
-          <div>
-            <h1>Hydrus Pocket</h1>
-            <p>Your private archive, within reach.</p>
-          </div>
-        </div>
-        <span
-          className={`health-dot ${health?.hydrus === "ok" ? "ok" : "bad"}`}
-          title={
-            health?.hydrus === "ok" ? "Hydrus connected" : "Hydrus unavailable"
-          }
-        />
-      </header>
       <section className="search-panel">
         <SearchComposer
           tokens={draft.tokens}
@@ -351,7 +334,21 @@ function Browse({
       {search.data && (
         <>
           <div className="results-bar" role="status" aria-live="polite">
-            <div>
+            <div className="result-summary">
+              <span
+                className={`health-dot ${health?.hydrus === "ok" ? "ok" : "bad"}`}
+                title={
+                  health?.hydrus === "ok"
+                    ? "Hydrus connected"
+                    : "Hydrus unavailable"
+                }
+                aria-label={
+                  health?.hydrus === "ok"
+                    ? "Hydrus connected"
+                    : "Hydrus unavailable"
+                }
+                role="img"
+              />
               <strong>{fileIds.length.toLocaleString()}</strong>
               <span>
                 {" "}

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0 — 2026-07-11
+
+- Removed the permanent browse branding masthead and moved connection health beside the result count.
+- Compressed search/result chrome and replaced the desktop top navigation with a compact bottom-right dock, returning the full viewport height to the gallery.
+
 ## 1.1.0 — 2026-07-11
 
 - Replaced uniform square gallery cells with virtualized justified rows that preserve portrait, landscape, and square media proportions.
