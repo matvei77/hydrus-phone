@@ -42,6 +42,30 @@ const fileMutationSchema = z.object({
 export const isAssetRequest = (url: string) =>
   url.startsWith("/assets/") || /\.[a-z0-9]+(?:\?|$)/i.test(url);
 
+const safeMethods = new Set(["GET", "HEAD", "OPTIONS"]);
+
+export function isTrustedBrowserRequest(
+  method: string,
+  origin: string | undefined,
+  fetchSite: string | undefined,
+  config: Pick<Config, "APP_URL" | "PORT">,
+) {
+  if (safeMethods.has(method.toUpperCase()) || !origin) return true;
+  if (fetchSite === "cross-site") return false;
+
+  const allowed = new Set([
+    `http://127.0.0.1:${config.PORT}`,
+    `http://localhost:${config.PORT}`,
+  ]);
+  if (config.APP_URL) allowed.add(new URL(config.APP_URL).origin);
+
+  try {
+    return allowed.has(new URL(origin).origin);
+  } catch {
+    return false;
+  }
+}
+
 export const normalizeMetadata = (item: any) => {
   const tags = item.tags ?? {};
   const displayTags: Record<string, string[]> = {};
@@ -125,6 +149,28 @@ export async function buildApp(
   });
   await app.register(compress);
   await app.register(rateLimit, { max: 180, timeWindow: "1 minute" });
+  app.addHook("onRequest", async (request, reply) => {
+    const origin = Array.isArray(request.headers.origin)
+      ? request.headers.origin[0]
+      : request.headers.origin;
+    const fetchSiteHeader = request.headers["sec-fetch-site"];
+    const fetchSite = Array.isArray(fetchSiteHeader)
+      ? fetchSiteHeader[0]
+      : fetchSiteHeader;
+    if (
+      !isTrustedBrowserRequest(
+        request.method,
+        origin,
+        fetchSite,
+        config,
+      )
+    ) {
+      return reply.code(403).send({
+        code: "UNTRUSTED_ORIGIN",
+        message: "Cross-origin API requests are not allowed.",
+      });
+    }
+  });
   app.addHook("onSend", async (request, reply, payload) => {
     if (
       request.url.startsWith("/api/") &&
@@ -187,7 +233,7 @@ export async function buildApp(
       return {
         gateway: "ok",
         hydrus: missingPermissions.length || unsupportedApi ? "error" : "ok",
-        version: "1.4.2",
+        version: "1.4.3",
         hydrusVersion: version.hydrus_version,
         apiVersion: version.version,
         permissions: permissions.basic_permissions,
@@ -214,7 +260,7 @@ export async function buildApp(
         return {
           gateway: "ok",
           hydrus: "error",
-          version: "1.4.2",
+          version: "1.4.3",
           code: error.code,
           message: error.message,
           lastSuccess: hydrus.getLastSuccess(),

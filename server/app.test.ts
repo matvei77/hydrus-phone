@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildTagMutationBody,
   isAssetRequest,
+  isTrustedBrowserRequest,
   normalizeMetadata,
 } from "./app.js";
 
@@ -10,6 +11,27 @@ describe("gateway normalization", () => {
     expect(isAssetRequest("/assets/missing.js")).toBe(true);
     expect(isAssetRequest("/icon-192.png?v=2")).toBe(true);
     expect(isAssetRequest("/saved")).toBe(false);
+  });
+
+  it("rejects cross-origin writes while allowing same-origin and non-browser clients", () => {
+    const config = { APP_URL: "https://phone.example.ts.net", PORT: 47810 };
+    expect(
+      isTrustedBrowserRequest(
+        "POST",
+        "https://phone.example.ts.net",
+        "same-origin",
+        config,
+      ),
+    ).toBe(true);
+    expect(
+      isTrustedBrowserRequest("POST", "https://evil.example", "cross-site", config),
+    ).toBe(false);
+    expect(isTrustedBrowserRequest("POST", undefined, undefined, config)).toBe(
+      true,
+    );
+    expect(
+      isTrustedBrowserRequest("GET", "https://evil.example", "cross-site", config),
+    ).toBe(true);
   });
 
   it("normalizes Hydrus extensions, timestamps, and display/storage tags", () => {

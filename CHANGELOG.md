@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.3 — 2026-07-11
+
+- Reject browser cross-origin POST requests before they can search, inspect, or mutate a Hydrus collection.
+- Pin GitHub Actions to immutable commit SHAs to reduce CI supply-chain risk.
+- Verify the complete private history with Gitleaks and all installed npm package signatures before preparing the clean public-history export.
+
 ## 1.4.2 — 2026-07-11
 
 - Upgrade the GitHub Actions runtime dependencies to their current major versions.

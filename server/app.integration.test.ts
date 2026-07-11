@@ -95,6 +95,23 @@ afterAll(async () => {
 });
 
 describe("gateway routes", () => {
+  it("blocks browser cross-origin POST requests before they reach Hydrus", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/search",
+      headers: {
+        origin: "https://attacker.example",
+        "sec-fetch-site": "cross-site",
+      },
+      payload: { predicates: [] },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      code: "UNTRUSTED_ORIGIN",
+      message: "Cross-origin API requests are not allowed.",
+    });
+  });
+
   it("reports diagnostic health and strict readiness", async () => {
     const health = await app.inject({ method: "GET", url: "/api/health" });
     expect(health.statusCode).toBe(200);

@@ -20,6 +20,7 @@ Hydrus Pocket protects a localhost Hydrus Client API from direct browser access:
 - The gateway exchanges it for a server-side session key and redacts credential headers.
 - The browser receives only the same-origin application API.
 - Routes are fixed-purpose, schema validated, body bounded, rate limited, and protected by CSP/security headers.
+- Browser POST requests are restricted to the configured application origin to prevent cross-site actions.
 - Original media and API responses use private, non-service-worker caching behavior.
 
 Hydrus Pocket does not provide separate user accounts. Every member of the tailnet who can reach the Serve URL should be treated as authorized to use the application's enabled operations, including local tag changes and archive/unarchive. Tailnet membership and ACLs are therefore part of the security model.
@@ -33,6 +34,10 @@ Do not:
 - Put the Hydrus key in browser code, query strings, screenshots, logs, or issue reports.
 - Grant Hydrus permissions beyond search/fetch, tag editing, and the add-files permission required for archive/unarchive.
 - Share the Serve URL with untrusted tailnet members without restrictive Tailscale ACLs.
+
+Set `APP_URL` to the exact Tailscale Serve HTTPS URL. If it changes, update `.env`
+and restart the gateway; browser write/search requests from any other origin are
+rejected. CLI health checks without a browser `Origin` header remain supported.
 
 ## Key rotation
 
