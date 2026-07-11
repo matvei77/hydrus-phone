@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { SessionMediaCache, surroundingFileIds } from "./sessionMediaCache";
+import {
+  protectedNavigationIds,
+  SessionMediaCache,
+  surroundingFileIds,
+} from "./sessionMediaCache";
 
 describe("session media cache", () => {
   it("keeps recently used blobs and evicts the least recently used entry", () => {
@@ -19,6 +23,28 @@ describe("session media cache", () => {
     expect(cache.has(3)).toBe(true);
     expect(cache.stats()).toEqual({ count: 2, bytes: 8 });
     expect(revoked).toEqual(["blob:2"]);
+  });
+
+  it("does not evict the protected navigation window for speculative work", () => {
+    const cache = new SessionMediaCache(
+      12,
+      (blob) => `blob:${blob.size}`,
+      () => undefined,
+    );
+    cache.put(1, new Blob(["1111"]));
+    cache.put(2, new Blob(["2222"]));
+    cache.put(3, new Blob(["3333"]));
+    cache.put(4, new Blob(["4444"]), [1, 2, 3]);
+    expect(cache.has(1)).toBe(true);
+    expect(cache.has(2)).toBe(true);
+    expect(cache.has(3)).toBe(true);
+    expect(cache.has(4)).toBe(false);
+  });
+
+  it("protects two items behind and ahead of the current position", () => {
+    expect(protectedNavigationIds([10, 11, 12, 13, 14, 15], 2)).toEqual([
+      10, 11, 12, 13, 14,
+    ]);
   });
 
   it("prioritizes the next item, current item, and then both directions", () => {

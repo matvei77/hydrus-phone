@@ -6,6 +6,7 @@ import { classifyMedia, mediaFileUrl, needsHydrusRender } from "../media";
 import {
   SESSION_MEDIA_CACHE_LIMIT,
   SESSION_MEDIA_ITEM_LIMIT,
+  protectedNavigationIds,
   sessionMediaCache,
   surroundingFileIds,
 } from "../sessionMediaCache";
@@ -296,6 +297,7 @@ export function Viewer({
   const [touch, setTouch] = useState<{ x: number; y: number } | null>(null);
   const prefetching = useRef(new Set<number>());
   const prefetchAbort = useRef(new AbortController());
+  const protectedCacheIds = useRef<Set<number>>(new Set());
   const [cacheState, setCacheState] = useState(() =>
     sessionMediaCache.stats(),
   );
@@ -309,6 +311,9 @@ export function Viewer({
   useEffect(() => setPosition(index), [index]);
   const id = fileIds[position];
   const m = media.get(id);
+  protectedCacheIds.current = new Set(
+    protectedNavigationIds(fileIds, position),
+  );
   useEffect(() => {
     if (
       !m ||
@@ -327,7 +332,7 @@ export function Viewer({
       .then(async (response) => {
         if (!response.ok) throw new Error(`Video request failed (${response.status})`);
         const blob = await response.blob();
-        if (!sessionMediaCache.put(id, blob))
+        if (!sessionMediaCache.put(id, blob, protectedCacheIds.current))
           throw new Error("Video is too large for the session cache");
         setCacheState(sessionMediaCache.stats());
       })
@@ -396,7 +401,11 @@ export function Viewer({
           });
           if (!response.ok) continue;
           const blob = await response.blob();
-          sessionMediaCache.put(item.fileId, blob);
+          sessionMediaCache.put(
+            item.fileId,
+            blob,
+            protectedCacheIds.current,
+          );
           setCacheState(sessionMediaCache.stats());
         } catch (error) {
           if ((error as Error).name !== "AbortError") {
