@@ -22,10 +22,11 @@
 - [x] Generic configuration with no tracked private hostname or credential
 - [x] Public README, support, security, contribution, conduct, and GitHub templates
 - [x] Dependabot configuration plus public-launch CodeQL/dependency-review workflows
-- [x] Pull requests and `main` are protected by the automated release-gate workflow
+- [x] Pull requests and `main` run the automated release-gate workflow
 
 ## Post-v1 operational follow-ups
 
+- [ ] Enable required branch protection and private vulnerability reporting after public launch or a GitHub plan upgrade
 - [ ] Remove the unused URL, notes, and ratings permissions retained by the Hydrus approval dialog
 - [x] Android remote-Tailscale portrait/PWA, JPEG XL, zoom, and slow-path cache checks
 - [ ] Android landscape, TalkBack, and extended video-seek checks
