@@ -5,6 +5,7 @@
 - Reject browser cross-origin POST requests before they can search, inspect, or mutate a Hydrus collection.
 - Pin GitHub Actions to immutable commit SHAs to reduce CI supply-chain risk.
 - Activate CodeQL and dependency review automatically for public repositories while safely skipping unsupported private-plan runs.
+- Limit Dependabot to security-driven updates instead of routine version-bump pull requests.
 - Verify the complete private history with Gitleaks and all installed npm package signatures before preparing the clean public-history export.
 
 ## 1.4.2 — 2026-07-11
