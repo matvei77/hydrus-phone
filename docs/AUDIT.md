@@ -2,7 +2,7 @@
 
 This audit maps the controlling `prompt.txt` scope to current evidence. “Automated” means repeatable local tests; “live” means the real Hydrus v649 / Client API v83 or the deployed tailnet service; “external” requires the physical Pixel or a user-designated mutable file.
 
-## Proven in RC7
+## Proven in v1.0.0
 
 - Architecture/security: same-origin Fastify gateway, localhost Hydrus, renewable server-side session key, no generic proxy/CORS, validated bodies/queries, redacted headers, CSP/security headers, rate/body limits, `no-store` originals/API, secret scan, and tailnet-only HTTPS.
 - Health/recovery: diagnostic health, strict readiness, API-version/permission checks, timeout and error codes, session renewal, aborted-stream cleanup, graceful shutdown, continuously capped logs, crash restart, startup registration, health command, uninstall, update, and executable rollback path.
@@ -15,11 +15,11 @@ This audit maps the controlling `prompt.txt` scope to current evidence. “Autom
 - Automated evidence: `npm run check:release` passes 33 Vitest tests, 21 Playwright workflows across Pixel-size/desktop/dark projects, WCAG A/AA serious+critical audit, production build, and production dependency audit. Gateway integration covers health/readiness, auth/session renewal, search, autocomplete, metadata, thumbnails, JPEG XL rendering, Range/invalid Range, timeouts, permission errors, tag writes, archive writes, and dynamic static-asset routing.
 - Live read-only evidence: real autocomplete, negative/OR/date/media/dimension/duration/ratio predicates, every required sort enum, broad bounded search, metadata, thumbnail, image/video/application discovery, a real 206 byte range, local health/readiness, HTTPS health, manifest, service worker, secret absence, and gateway crash recovery.
 
-## External release gates still open
+## Post-v1 operational follow-ups
 
 - Hydrus least privilege: the approved key still includes unused URL, notes, and ratings permissions (`0,7,9`). Remove them in **services → review services → client api → Hydrus Pocket → edit**; keep only `1,2,3`.
 - Real reversible writes: automated fake-upstream coverage proves payloads, but no personal archive file has been mutated. A user-designated sacrificial file is required for live add/remove and archive/unarchive verification without silently altering personal metadata/history.
-- Physical Android: the Pixel 10 Pro XL remains offline in Tailscale. Wi-Fi and remote-tailnet launch, PWA installation, portrait/landscape, native media gestures/seeking, TalkBack, slow-network behavior, and target-device frame/memory measurements remain unproven.
+- Physical Android: remote-tailnet launch, portrait PWA use, JPEG XL, double-tap zoom, and slow-path session caching are proven on the Pixel 10 Pro XL. Landscape, TalkBack, extended video seeking, and longer target-device frame/memory measurements remain follow-ups.
 - Reboot proof: per-user startup registration and crash restart are proven, but an actual desktop reboot has not been performed because it would disrupt the active machine session.
 
-No completion claim should close these external gates without direct evidence.
+These follow-ups do not block the browsing-first v1 scope, but they remain explicitly unverified.

@@ -1,6 +1,6 @@
 # Status
 
-Phase: RC7 session-wide bidirectional media caching is implemented; physical-phone verification is in progress.
+Phase: v1.0.0 release validation and publication.
 
 Completed: greenfield React/Fastify PWA; secure credential/session boundary; complete search composer, filters, sorts, limits, bounded/virtualized result flow, mixed-media viewer, tag editor, archive API, saved/recent searches, health/settings/offline states, PWA, tests, Windows deployment/auto-start, security/operations documentation.
 

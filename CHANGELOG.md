@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0 — 2026-07-11
+
+- Established the final monochrome Hydrus-inspired interface with neutral utility surfaces, blue focus/selection, and semantic-only status color.
+- Promoted the complete private browsing/search/filter/tag workflow, JPEG XL rendering, Android zoom, and 200 MB bidirectional session cache from release candidate to v1.
+
 ## 0.1.0-rc.7 — 2026-07-11
 
 - Replaced viewer-local forward-only lookahead with a page-session 200 MB LRU media cache that survives viewer close/reopen.

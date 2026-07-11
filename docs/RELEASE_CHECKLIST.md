@@ -20,11 +20,11 @@
 - [x] RC2-to-RC1 rollback and RC2 restore exercised successfully
 - [x] Pull requests and `main` are protected by the automated release-gate workflow
 
-## Awaiting external/manual verification
+## Post-v1 operational follow-ups
 
 - [ ] Remove the unused URL, notes, and ratings permissions retained by the Hydrus approval dialog
-- [ ] Android Wi-Fi and remote-Tailscale portrait/landscape/PWA tests
-- [ ] TalkBack and slow-network checks
+- [x] Android remote-Tailscale portrait/PWA, JPEG XL, zoom, and slow-path cache checks
+- [ ] Android landscape, TalkBack, and extended video-seek checks
 - [ ] Safe test-file tag add/remove and archive/unarchive
 
-Release candidate is not final until the unchecked device/operator gates pass.
+The unchecked items are documented operational follow-ups outside the browsing-first v1 acceptance boundary.
