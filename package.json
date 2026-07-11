@@ -32,7 +32,7 @@
     "check:release": "npm run check && npm run test:e2e && npm run check:licenses && npm audit --omit=dev"
   },
   "dependencies": {
-    "@fastify/compress": "^8.1.0",
+    "@fastify/compress": "^9.0.0",
     "@fastify/helmet": "^13.0.2",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/static": "^9.3.0",
