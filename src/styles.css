@@ -951,23 +951,6 @@ button {
   width: 100%;
   max-height: 100%;
 }
-.video-buffering {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
-}
-.video-buffering span {
-  padding: 10px 14px;
-  background: #101010;
-  border: 1px solid #555;
-  color: white;
-  font: 600 11px/1 Bahnschrift, sans-serif;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
 .viewer-loader,
 .viewer-close {
   color: white;

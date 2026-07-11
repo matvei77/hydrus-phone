@@ -2,7 +2,7 @@
 
 Hydrus Pocket is a phone-first PWA for privately searching, filtering, sorting, browsing, viewing, and lightly organizing a mixed-media Hydrus archive over Tailscale. A localhost-only Node gateway owns the Hydrus credential; browsers never receive it.
 
-Version 1.3.0 adds browser-compatible JPEG XL viewing, viewer-first adaptive video delivery, a 200 MB bidirectional page-session media cache with a protected five-item navigation window, tag-led collection navigation, Android-native zoom gestures, a monochrome Hydrus-inspired compact interface, and a justified gallery that preserves each file's aspect ratio.
+Version 1.3.1 adds browser-compatible JPEG XL viewing, immediate byte-range video playback with opportunistic lookahead caching, a 200 MB bidirectional page-session media cache with a protected five-item navigation window, tag-led collection navigation, Android-native zoom gestures, a monochrome Hydrus-inspired compact interface, and a justified gallery that preserves each file's aspect ratio.
 
 ## Current machine quick start
 
