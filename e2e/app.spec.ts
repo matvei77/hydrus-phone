@@ -140,16 +140,6 @@ async function mockApi(page: Page) {
           : id === 4
             ? "application/pdf"
             : "image/svg+xml";
-    if (id === 2 && process.env.CAPTURE_VISUALS)
-      return new Promise((resolve) =>
-        setTimeout(
-          () =>
-            resolve(
-              route.fulfill({ status: 200, contentType, body: "fixture" }),
-            ),
-          4000,
-        ),
-      );
     return route.fulfill({
       status: 200,
       contentType,
@@ -346,13 +336,6 @@ test("mixed-media viewer, Back, metadata, tags, and archive controls work", asyn
   expect(new URL(page.url()).searchParams.get("view")).toBe("1");
   await page.getByRole("button", { name: "Next file" }).click();
   expect(new URL(page.url()).searchParams.get("view")).toBe("2");
-  if (process.env.CAPTURE_VISUALS) {
-    await expect(page.getByText("Buffering video…")).toBeVisible();
-    await page.screenshot({
-      path: `docs/screenshots/video-buffering-${testInfo.project.name}.png`,
-      fullPage: true,
-    });
-  }
   await expect(page.locator("video")).toBeVisible();
   await expect(page.locator("video")).toHaveAttribute("src", /^blob:/);
   await page.goBack();

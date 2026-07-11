@@ -187,7 +187,7 @@ export async function buildApp(
       return {
         gateway: "ok",
         hydrus: missingPermissions.length || unsupportedApi ? "error" : "ok",
-        version: "1.3.0",
+        version: "1.3.1",
         hydrusVersion: version.hydrus_version,
         apiVersion: version.version,
         permissions: permissions.basic_permissions,
@@ -214,7 +214,7 @@ export async function buildApp(
         return {
           gateway: "ok",
           hydrus: "error",
-          version: "1.3.0",
+          version: "1.3.1",
           code: error.code,
           message: error.message,
           lastSuccess: hydrus.getLastSuccess(),

@@ -1,6 +1,6 @@
 # Status
 
-Phase: v1.3.0 full phone-surface audit and viewer-first media scheduling publication.
+Phase: v1.3.1 immediate video streaming validation and publication.
 
 Completed: greenfield React/Fastify PWA; secure credential/session boundary; complete search composer, filters, sorts, limits, bounded/virtualized result flow, mixed-media viewer, tag editor, archive API, saved/recent searches, health/settings/offline states, PWA, tests, Windows deployment/auto-start, security/operations documentation.
 

@@ -301,9 +301,6 @@ export function Viewer({
   const [cacheState, setCacheState] = useState(() =>
     sessionMediaCache.stats(),
   );
-  const [videoFallbackIds, setVideoFallbackIds] = useState<Set<number>>(
-    () => new Set(),
-  );
   const onPositionChangeRef = useRef(onPositionChange);
   useEffect(() => {
     onPositionChangeRef.current = onPositionChange;
@@ -314,35 +311,6 @@ export function Viewer({
   protectedCacheIds.current = new Set(
     protectedNavigationIds(fileIds, position),
   );
-  useEffect(() => {
-    if (
-      !m ||
-      classifyMedia(m) !== "video" ||
-      !shouldBufferVideo(m.size) ||
-      sessionMediaCache.has(id) ||
-      videoFallbackIds.has(id)
-    )
-      return;
-    const controller = new AbortController();
-    prefetching.current.add(id);
-    void fetch(mediaFileUrl(m), {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Video request failed (${response.status})`);
-        const blob = await response.blob();
-        if (!sessionMediaCache.put(id, blob, protectedCacheIds.current))
-          throw new Error("Video is too large for the session cache");
-        setCacheState(sessionMediaCache.stats());
-      })
-      .catch((error) => {
-        if ((error as Error).name !== "AbortError")
-          setVideoFallbackIds((current) => new Set(current).add(id));
-      })
-      .finally(() => prefetching.current.delete(id));
-    return () => controller.abort();
-  }, [id, m, videoFallbackIds]);
   useEffect(() => {
     setImageZoomed(false);
     setMediaReady(false);
@@ -467,11 +435,6 @@ export function Viewer({
   const imageUrl = sessionMediaCache.get(id)?.url ?? mediaUrl;
   const cachedVideoUrl =
     type === "video" ? sessionMediaCache.get(id)?.url : undefined;
-  const bufferVideoBeforePlayback =
-    type === "video" &&
-    shouldBufferVideo(m.size) &&
-    !cachedVideoUrl &&
-    !videoFallbackIds.has(id);
   const lookaheadAllowed =
     mediaReady && !(type === "video" && !cachedVideoUrl);
   const allDisplayTags = [
@@ -530,16 +493,7 @@ export function Viewer({
           onReady={() => setMediaReady(true)}
         />
       )}
-      {bufferVideoBeforePlayback && (
-        <div
-          className="viewer-video video-buffering"
-          style={{ backgroundImage: `url(/api/media/${id}/thumbnail)` }}
-          role="status"
-        >
-          <span>Buffering video…</span>
-        </div>
-      )}
-      {type === "video" && !bufferVideoBeforePlayback && (
+      {type === "video" && (
         <video
           className="viewer-video"
           src={cachedVideoUrl ?? mediaUrl}

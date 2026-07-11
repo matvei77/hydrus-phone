@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1 — 2026-07-11
+
+- Remove blocking full-file buffering from the active viewer: every uncached video now mounts immediately and starts through native byte-range streaming.
+- Retain full-blob caching only as completed lookahead while another item is already ready, so a cache miss never delays first playback.
+
 ## 1.3.0 — 2026-07-11
 
 - Audited and tightened every phone surface: collapsible search chrome, compact filter/sort access, 48 px icon-first navigation, shorter Saved/Settings headers, denser sheets, viewer controls, and tag ribbon.
