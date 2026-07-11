@@ -2,7 +2,7 @@
 
 This audit maps the documented product scope to current evidence. “Automated” means repeatable local tests; “live” means a real supported Hydrus/Client API instance or deployed tailnet service; “external” requires a physical target device or a user-designated mutable file.
 
-## Proven through v1.4.0
+## Proven through v1.4.1
 
 - Architecture/security: same-origin Fastify gateway, localhost Hydrus, renewable server-side session key, no generic proxy/CORS, validated bodies/queries, redacted headers, CSP/security headers, rate/body limits, `no-store` originals/API, secret scan, and tailnet-only HTTPS.
 - Health/recovery: diagnostic health, strict readiness, API-version/permission checks, timeout and error codes, session renewal, aborted-stream cleanup, graceful shutdown, continuously capped logs, crash restart, startup registration, health command, uninstall, update, and executable rollback path.

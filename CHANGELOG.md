@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.1 — 2026-07-11
+
+- Correct the public-launch checklist to distinguish configured CI from branch-protection and vulnerability-reporting controls that GitHub does not provide to this private repository on its current plan.
+
 ## 1.4.0 — 2026-07-11
 
 - Prepare the private repository for an eventual public launch under Apache License 2.0, with Hydrus attribution and an explicit non-affiliation notice.
