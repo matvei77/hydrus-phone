@@ -337,6 +337,7 @@ test("mixed-media viewer, Back, metadata, tags, and archive controls work", asyn
   await page.getByRole("button", { name: "Next file" }).click();
   expect(new URL(page.url()).searchParams.get("view")).toBe("2");
   await expect(page.locator("video")).toBeVisible();
+  await expect(page.locator("video")).toHaveAttribute("src", /^blob:/);
   await page.goBack();
   await expect(page.getByRole("button", { name: "Close viewer" })).toHaveCount(
     0,

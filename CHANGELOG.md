@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 — 2026-07-11
+
+- Buffer videos up to 24 MB into the existing 200 MB page-session cache before playback, eliminating repeated Tailnet range fetches during replay and seeking.
+- Warm nearby eligible videos alongside images and retain them across viewer close/reopen within the same page session.
+
 ## 1.2.0 — 2026-07-11
 
 - Removed the permanent browse branding masthead and moved connection health beside the result count.
