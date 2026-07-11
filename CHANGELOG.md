@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.2 — 2026-07-11
+
+- Upgrade the GitHub Actions runtime dependencies to their current major versions.
+- Restrict grouped Dependabot application updates to minor and patch releases so incompatible ecosystem majors receive dedicated review.
+
 ## 1.4.1 — 2026-07-11
 
 - Correct the public-launch checklist to distinguish configured CI from branch-protection and vulnerability-reporting controls that GitHub does not provide to this private repository on its current plan.

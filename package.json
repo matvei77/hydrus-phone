@@ -1,6 +1,6 @@
 {
   "name": "hydrus-pocket",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Phone-first, tailnet-only companion for browsing and lightly organizing a Hydrus archive.",
   "license": "Apache-2.0",
   "repository": {
