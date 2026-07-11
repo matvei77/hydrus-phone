@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createServer, type Server } from "node:http";
-import { HydrusClient } from "./hydrus.js";
+import { HydrusClient, HydrusError } from "./hydrus.js";
 
 let server: Server | undefined;
 afterEach(() => server?.close());
@@ -12,30 +12,37 @@ const fixture = async (
     status?: number;
     headers?: Record<string, string>;
     body: string | Buffer;
+    delayMs?: number;
   },
+  timeoutMs = 20_000,
 ) => {
   server = createServer((req, res) => {
     const out = handler(
       new URL(req.url!, `http://${req.headers.host}`),
       req.headers,
     );
-    res.writeHead(
-      out.status ?? 200,
-      out.headers ?? { "content-type": "application/json" },
-    );
-    res.end(out.body);
+    setTimeout(() => {
+      res.writeHead(
+        out.status ?? 200,
+        out.headers ?? { "content-type": "application/json" },
+      );
+      res.end(out.body);
+    }, out.delayMs ?? 0);
   });
   await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string")
     throw new Error("fixture failed");
-  return new HydrusClient({
-    HYDRUS_URL: `http://127.0.0.1:${address.port}`,
-    HYDRUS_ACCESS_KEY: "a".repeat(64),
-    HOST: "127.0.0.1",
-    PORT: 47810,
-    LOG_LEVEL: "silent",
-  });
+  return new HydrusClient(
+    {
+      HYDRUS_URL: `http://127.0.0.1:${address.port}`,
+      HYDRUS_ACCESS_KEY: "a".repeat(64),
+      HOST: "127.0.0.1",
+      PORT: 47810,
+      LOG_LEVEL: "silent",
+    },
+    timeoutMs,
+  );
 };
 
 describe("Hydrus client integration", () => {
@@ -74,5 +81,44 @@ describe("Hydrus client integration", () => {
     );
     expect(response.status).toBe(206);
     expect(await response.text()).toBe("cdef");
+  });
+  it("renews an expired session once", async () => {
+    let sessions = 0;
+    let calls = 0;
+    const client = await fixture((url) => {
+      if (url.pathname === "/session_key")
+        return { body: JSON.stringify({ session_key: `s${++sessions}` }) };
+      calls++;
+      return calls === 1
+        ? { status: 419, body: '{"error":"expired"}' }
+        : { body: '{"ok":true}' };
+    });
+    expect(await client.request("/api_version")).toEqual({ ok: true });
+    expect(sessions).toBe(2);
+  });
+  it("normalizes permission failures", async () => {
+    const client = await fixture((url) =>
+      url.pathname === "/session_key"
+        ? { body: '{"session_key":"s"}' }
+        : { status: 403, body: '{"error":"permission missing"}' },
+    );
+    await expect(client.request("/verify_access_key")).rejects.toMatchObject({
+      status: 403,
+      code: "HYDRUS_PERMISSION",
+      message: "permission missing",
+    } satisfies Partial<HydrusError>);
+  });
+  it("normalizes upstream timeouts", async () => {
+    const client = await fixture(
+      (url) =>
+        url.pathname === "/session_key"
+          ? { body: '{"session_key":"s"}' }
+          : { body: '{"ok":true}', delayMs: 100 },
+      20,
+    );
+    await expect(client.request("/api_version")).rejects.toMatchObject({
+      status: 504,
+      code: "HYDRUS_TIMEOUT",
+    });
   });
 });

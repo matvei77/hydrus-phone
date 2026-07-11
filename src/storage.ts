@@ -6,6 +6,11 @@ const read = <T>(key: string, fallback: T): T => {
     return fallback;
   }
 };
+export const scrollStorageKey = (queryKey: string) =>
+  `hp:scroll:${[...queryKey].reduce(
+    (hash, char) => (hash * 31 + char.charCodeAt(0)) | 0,
+    7,
+  )}`;
 export type SavedSearch = {
   id: string;
   name: string;
@@ -25,6 +30,7 @@ export const storage = {
       "hp:recent",
       JSON.stringify([q, ...read<QueryState[]>("hp:recent", []).slice(0, 19)]),
     ),
+  clearRecent: () => localStorage.removeItem("hp:recent"),
   clear: async () => {
     localStorage.clear();
     for (const key of await caches.keys()) await caches.delete(key);

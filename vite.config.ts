@@ -3,12 +3,16 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  test: { environment: "jsdom", setupFiles: "./vitest.setup.ts" },
+  test: {
+    environment: "jsdom",
+    setupFiles: "./vitest.setup.ts",
+    include: ["src/**/*.test.{ts,tsx}", "server/**/*.test.ts"],
+  },
   plugins: [
     react(),
     VitePWA({
       registerType: "prompt",
-      includeAssets: ["icon.svg"],
+      includeAssets: ["icon.svg", "icon-192.png", "icon-512.png"],
       manifest: {
         name: "Hydrus Pocket",
         short_name: "Pocket",
@@ -19,10 +23,22 @@ export default defineConfig({
         orientation: "any",
         icons: [
           {
-            src: "/icon.svg",
-            sizes: "any",
-            type: "image/svg+xml",
-            purpose: "any maskable",
+            src: "/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
           },
         ],
       },

@@ -12,12 +12,16 @@ export type Filters = {
   dateFrom: string;
   dateTo: string;
   duration: string;
+  durationMin: string;
+  durationMax: string;
   minWidth: string;
   minHeight: string;
   minMegapixels: string;
   minSizeMb: string;
   maxSizeMb: string;
   orientation: string;
+  aspectMin: string;
+  aspectMax: string;
   audio: string;
 };
 export type QueryState = {
@@ -34,7 +38,7 @@ export type Media = {
   fileId: number;
   hash: string;
   size: number;
-  mime: number;
+  mime: number | string;
   ext: string;
   width: number | null;
   height: number | null;
@@ -62,6 +66,8 @@ export type Health = {
   hydrusVersion?: number;
   apiVersion?: number;
   permissions?: number[];
+  missingPermissions?: number[];
+  extraPermissions?: number[];
   services?: Service[];
   appUrl?: string;
   lastSuccess?: string;
@@ -78,12 +84,16 @@ export const defaultFilters: Filters = {
   dateFrom: "",
   dateTo: "",
   duration: "any",
+  durationMin: "",
+  durationMax: "",
   minWidth: "",
   minHeight: "",
   minMegapixels: "",
   minSizeMb: "",
   maxSizeMb: "",
   orientation: "any",
+  aspectMin: "",
+  aspectMax: "",
   audio: "any",
 };
 export const defaultQuery: QueryState = {

@@ -22,7 +22,10 @@ type RequestOptions = {
 export class HydrusClient {
   private sessionKey: string | undefined;
   private lastSuccess: string | undefined;
-  constructor(private config: Config) {}
+  constructor(
+    private config: Config,
+    private timeoutMs = 20_000,
+  ) {}
 
   private url(path: string, query?: Record<string, unknown>) {
     const url = new URL(path, this.config.HYDRUS_URL);
@@ -71,7 +74,7 @@ export class HydrusClient {
     const controller = new AbortController();
     const timer = setTimeout(
       () => controller.abort(new Error("Hydrus request timed out")),
-      20_000,
+      this.timeoutMs,
     );
     const abort = () => controller.abort(options.signal?.reason);
     options.signal?.addEventListener("abort", abort, { once: true });
@@ -122,18 +125,50 @@ export class HydrusClient {
     query: Record<string, unknown>,
     range?: string,
     signal?: AbortSignal,
-  ) {
-    const response = await fetch(this.url(path, query), {
-      headers: {
-        "Hydrus-Client-API-Session-Key": await this.session(signal),
-        ...(range ? { range } : {}),
-      },
-      signal,
-    });
-    if (!response.ok && response.status !== 206)
-      throw await this.error(response);
-    this.lastSuccess = new Date().toISOString();
-    return response;
+    retry = true,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(new Error("Hydrus stream connection timed out")),
+      this.timeoutMs,
+    );
+    const abort = () => controller.abort(signal?.reason);
+    signal?.addEventListener("abort", abort, { once: true });
+    try {
+      const response = await fetch(this.url(path, query), {
+        headers: {
+          "Hydrus-Client-API-Session-Key": await this.session(
+            controller.signal,
+          ),
+          ...(range ? { range } : {}),
+        },
+        signal: controller.signal,
+      });
+      if ((response.status === 401 || response.status === 419) && retry) {
+        this.sessionKey = undefined;
+        return this.stream(path, query, range, signal, false);
+      }
+      if (!response.ok && response.status !== 206)
+        throw await this.error(response);
+      this.lastSuccess = new Date().toISOString();
+      return response;
+    } catch (error) {
+      if (error instanceof HydrusError) throw error;
+      if (controller.signal.aborted)
+        throw new HydrusError(
+          504,
+          "Hydrus did not begin the media response before the timeout.",
+          "HYDRUS_TIMEOUT",
+        );
+      throw new HydrusError(
+        503,
+        error instanceof Error ? error.message : "Hydrus is unavailable.",
+        "HYDRUS_UNAVAILABLE",
+      );
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+    }
   }
 
   getLastSuccess() {
