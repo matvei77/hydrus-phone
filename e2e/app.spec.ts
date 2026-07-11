@@ -80,6 +80,7 @@ async function mockApi(page: Page) {
   const searches: unknown[] = [];
   const mutations: unknown[] = [];
   const mediaRequests: number[] = [];
+  const renderRequests: number[] = [];
   let healthy = true;
   await page.route("**/api/health", (route) =>
     route.fulfill({
@@ -124,9 +125,10 @@ async function mockApi(page: Page) {
   await page.route("**/api/media/*/thumbnail", (route) =>
     route.fulfill({ contentType: "image/svg+xml", body: pixel }),
   );
-  await page.route("**/api/media/*/render", (route) =>
-    route.fulfill({ contentType: "image/svg+xml", body: pixel }),
-  );
+  await page.route("**/api/media/*/render", (route) => {
+    renderRequests.push(Number(route.request().url().split("/").at(-2)));
+    return route.fulfill({ contentType: "image/svg+xml", body: pixel });
+  });
   await page.route("**/api/media/*/file", (route) => {
     const id = Number(route.request().url().split("/").at(-2));
     mediaRequests.push(id);
@@ -154,6 +156,7 @@ async function mockApi(page: Page) {
     searches,
     mutations,
     mediaRequests,
+    renderRequests,
     setHealthy: (value: boolean) => {
       healthy = value;
     },
@@ -293,9 +296,7 @@ test("mixed-media viewer, Back, metadata, tags, and archive controls work", asyn
   await expect(
     page.getByRole("button", { name: "Close viewer" }),
   ).toBeVisible();
-  await expect(
-    page.locator('.viewer-image[src="/api/media/1/file"]'),
-  ).toBeVisible();
+  await expect(page.locator(".viewer-image")).toBeVisible();
   if (testInfo.project.name === "android") {
     const stage = page.locator(".zoom-stage");
     const bounds = await stage.boundingBox();
@@ -367,9 +368,13 @@ test("mixed-media viewer, Back, metadata, tags, and archive controls work", asyn
   await expect(page.getByText("Preview unavailable")).toBeVisible();
   await page.getByRole("button", { name: "Close viewer" }).click();
   await page.getByRole("button", { name: "Open jxl" }).click();
-  await expect(
-    page.locator('.viewer-image[src="/api/media/5/render"]'),
-  ).toBeVisible();
+  await expect(page.locator(".viewer-image")).toBeVisible();
+  await expect.poll(() => state.renderRequests.length).toBeGreaterThan(0);
+  const renderedBeforeReopen = state.renderRequests.length;
+  await page.getByRole("button", { name: "Close viewer" }).click();
+  await page.getByRole("button", { name: "Open jxl" }).click();
+  await expect(page.locator('.viewer-image[src^="blob:"]')).toBeVisible();
+  expect(state.renderRequests).toHaveLength(renderedBeforeReopen);
 });
 
 test("viewer tags refine a collection and Back restores its prior page", async ({

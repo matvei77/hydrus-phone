@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-rc.7 — 2026-07-11
+
+- Replaced viewer-local forward-only lookahead with a page-session 200 MB LRU media cache that survives viewer close/reopen.
+- Added bidirectional proximity ordering, current-file retention, six concurrent warmers, wider metadata lookahead, and visible cached megabytes.
+
 ## 0.1.0-rc.6 — 2026-07-10
 
 - Added full JPEG XL viewing through Hydrus' native render endpoint, producing a quality-95 browser-compatible image while preserving zoom, swipe navigation, and bounded lookahead.

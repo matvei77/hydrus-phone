@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { api } from "../api";
-import { classifyMedia, mediaFileUrl } from "../media";
+import { classifyMedia, mediaFileUrl, needsHydrusRender } from "../media";
+import {
+  SESSION_MEDIA_CACHE_LIMIT,
+  SESSION_MEDIA_ITEM_LIMIT,
+  sessionMediaCache,
+  surroundingFileIds,
+} from "../sessionMediaCache";
 import { scrollStorageKey } from "../storage";
 import type { Media, Service } from "../types";
 import { formatDuration, InfoSheet, Sheet } from "./Sheets";
@@ -280,13 +286,11 @@ export function Viewer({
   const [imageZoomed, setImageZoomed] = useState(false);
   const [mediaReady, setMediaReady] = useState(false);
   const [touch, setTouch] = useState<{ x: number; y: number } | null>(null);
-  const prefetchedImages = useRef(
-    new Map<number, { url: string; bytes: number }>(),
-  );
   const prefetching = useRef(new Set<number>());
   const prefetchAbort = useRef(new AbortController());
-  const prefetchBytes = useRef(0);
-  const [prefetchCount, setPrefetchCount] = useState(0);
+  const [cacheState, setCacheState] = useState(() =>
+    sessionMediaCache.stats(),
+  );
   const onPositionChangeRef = useRef(onPositionChange);
   useEffect(() => {
     onPositionChangeRef.current = onPositionChange;
@@ -313,25 +317,33 @@ export function Viewer({
   );
   useEffect(() => {
     onNeed(
-      fileIds
-        .slice(Math.max(0, position - 2), position + 21)
+      surroundingFileIds(fileIds, position)
         .filter((x) => !media.has(x)),
     );
   }, [position, fileIds, media, onNeed]);
   useEffect(() => {
     if (!mediaReady) return;
-    const queue = fileIds
-      .slice(position + 1, position + 21)
+    let plannedBytes = 0;
+    const queue = surroundingFileIds(fileIds, position)
       .map((fileId) => media.get(fileId))
       .filter(
-        (item): item is Media =>
-          !!item &&
-          classifyMedia(item) === "image" &&
-          item.size <= 8 * 1024 * 1024 &&
-          !prefetchedImages.current.has(item.fileId) &&
-          !prefetching.current.has(item.fileId),
+        (item): item is Media => !!item && classifyMedia(item) === "image",
       )
-      .slice(0, 16);
+      .filter((item) => {
+        const estimatedBytes =
+          sessionMediaCache.get(item.fileId)?.bytes ??
+          Math.ceil(item.size * (needsHydrusRender(item) ? 0.55 : 1));
+        if (
+          estimatedBytes > SESSION_MEDIA_ITEM_LIMIT ||
+          plannedBytes + estimatedBytes > SESSION_MEDIA_CACHE_LIMIT
+        )
+          return false;
+        plannedBytes += estimatedBytes;
+        return (
+          !sessionMediaCache.has(item.fileId) &&
+          !prefetching.current.has(item.fileId)
+        );
+      });
     const worker = async () => {
       while (queue.length && !prefetchAbort.current.signal.aborted) {
         const item = queue.shift();
@@ -344,26 +356,8 @@ export function Viewer({
           });
           if (!response.ok) continue;
           const blob = await response.blob();
-          if (blob.size > 8 * 1024 * 1024) continue;
-          while (
-            prefetchedImages.current.size >= 16 ||
-            prefetchBytes.current + blob.size > 48 * 1024 * 1024
-          ) {
-            const oldest = prefetchedImages.current.entries().next().value as
-              | [number, { url: string; bytes: number }]
-              | undefined;
-            if (!oldest) break;
-            URL.revokeObjectURL(oldest[1].url);
-            prefetchedImages.current.delete(oldest[0]);
-            prefetchBytes.current -= oldest[1].bytes;
-          }
-          const url = URL.createObjectURL(blob);
-          prefetchedImages.current.set(item.fileId, {
-            url,
-            bytes: blob.size,
-          });
-          prefetchBytes.current += blob.size;
-          setPrefetchCount(prefetchedImages.current.size);
+          sessionMediaCache.put(item.fileId, blob);
+          setCacheState(sessionMediaCache.stats());
         } catch (error) {
           if ((error as Error).name !== "AbortError") {
             // Lookahead is opportunistic; the normal media request remains the fallback.
@@ -373,25 +367,21 @@ export function Viewer({
         }
       }
     };
-    void Promise.all([worker(), worker(), worker()]);
+    void Promise.all([
+      worker(),
+      worker(),
+      worker(),
+      worker(),
+      worker(),
+      worker(),
+    ]);
   }, [position, fileIds, media, mediaReady]);
   useEffect(
     () => () => {
       prefetchAbort.current.abort();
-      prefetchedImages.current.forEach((entry) =>
-        URL.revokeObjectURL(entry.url),
-      );
-      prefetchedImages.current.clear();
     },
     [],
   );
-  useEffect(() => {
-    const cached = prefetchedImages.current.get(id);
-    if (cached) {
-      prefetchedImages.current.delete(id);
-      prefetchedImages.current.set(id, cached);
-    }
-  }, [id]);
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -422,7 +412,7 @@ export function Viewer({
     );
   const type = classifyMedia(m);
   const mediaUrl = mediaFileUrl(m);
-  const imageUrl = prefetchedImages.current.get(id)?.url ?? mediaUrl;
+  const imageUrl = sessionMediaCache.get(id)?.url ?? mediaUrl;
   const allDisplayTags = [
     ...new Set(Object.values(m.displayTags).flatMap((tags) => tags)),
   ].sort((a, b) => a.localeCompare(b));
@@ -584,8 +574,8 @@ export function Viewer({
             </b>
             {type === "image" && (
               <small>
-                {prefetchCount
-                  ? `${prefetchCount} READY`
+                {cacheState.count
+                  ? `${cacheState.count} READY · ${Math.round(cacheState.bytes / 1024 / 1024)} MB`
                   : mediaReady
                     ? "BUFFERING"
                     : "LOADING"}
