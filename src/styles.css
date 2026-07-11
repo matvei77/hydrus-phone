@@ -103,7 +103,7 @@ button {
   background: #ff6471;
 }
 .search-panel {
-  padding: 12px 12px 10px;
+  padding: 8px 10px;
   background: var(--ink);
   color: white;
   z-index: 5;
@@ -115,7 +115,7 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: end;
-  margin: 0 2px 7px;
+  margin: 0 2px 5px;
   font:
     600 10px/1.1 Bahnschrift,
     sans-serif;
@@ -237,7 +237,7 @@ button {
   display: grid;
   grid-template-columns: 1fr auto auto 48px;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 .primary,
 .secondary,
@@ -295,7 +295,7 @@ button {
   font-size: 24px;
 }
 .results-bar {
-  height: 49px;
+  height: 44px;
   flex: none;
   display: flex;
   align-items: center;
@@ -303,6 +303,17 @@ button {
   padding: 0 13px;
   background: white;
   border-bottom: 1px solid var(--line);
+}
+.result-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.result-summary .health-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  box-shadow: none;
 }
 .results-bar strong {
   font:
@@ -1195,16 +1206,18 @@ button {
     grid-column: auto;
   }
   .browse-page {
-    height: calc(100dvh - 64px);
+    height: 100dvh;
   }
   .bottom-nav {
-    height: 64px;
+    height: 56px;
     left: auto;
-    top: 0;
-    bottom: auto;
+    top: auto;
+    bottom: 0;
     width: 300px;
-    border: 0;
-    background: transparent;
+    border: 1px solid #353535;
+    border-bottom: 0;
+    border-right: 0;
+    background: var(--ink);
   }
   .app-shell {
     padding-bottom: 0;
@@ -1213,8 +1226,11 @@ button {
     height: 72px;
   }
   .search-panel {
-    padding-top: 16px;
-    padding-bottom: 16px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .grid-scroll {
+    padding-bottom: 64px;
   }
   .sub-page {
     padding-bottom: 60px;

@@ -1,6 +1,6 @@
 # Status
 
-Phase: v1.1.0 aspect-ratio gallery validation and publication.
+Phase: v1.2.0 compact browse chrome validation and publication.
 
 Completed: greenfield React/Fastify PWA; secure credential/session boundary; complete search composer, filters, sorts, limits, bounded/virtualized result flow, mixed-media viewer, tag editor, archive API, saved/recent searches, health/settings/offline states, PWA, tests, Windows deployment/auto-start, security/operations documentation.
 

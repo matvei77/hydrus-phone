@@ -179,8 +179,11 @@ export function ResultsGrid({
     overscan: 4,
   });
   useEffect(() => {
-    const saved = Number(localStorage.getItem(storageKey) ?? 0);
-    const frame = requestAnimationFrame(() => virtual.scrollToOffset(saved));
+    const frame = requestAnimationFrame(() =>
+      virtual.scrollToOffset(
+        Number(localStorage.getItem(storageKey) ?? 0),
+      ),
+    );
     return () => cancelAnimationFrame(frame);
   }, [virtual, storageKey, rows.length, width]);
   const visible = virtual.getVirtualItems();

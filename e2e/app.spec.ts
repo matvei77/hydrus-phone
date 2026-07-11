@@ -265,6 +265,13 @@ test("viewer navigation and reload restore the exact grid position", async ({
   await page.goto("/");
   const grid = page.locator("#results-scroll");
   await expect(grid).toBeVisible();
+  await expect
+    .poll(() =>
+      grid.evaluate(
+        (element) => element.scrollHeight - element.clientHeight,
+      ),
+    )
+    .toBeGreaterThanOrEqual(600);
   await grid.evaluate((element) => {
     element.scrollTop = 600;
     element.dispatchEvent(new Event("scroll"));
