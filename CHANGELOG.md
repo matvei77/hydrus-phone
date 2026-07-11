@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.2 — 2026-07-11
+
+- Protect the current media and the two nearest files in both directions from eviction by speculative preload traffic.
+- Make late downloads from an older viewer position sacrifice unprotected entries instead of recently viewed navigation history.
+
 ## 1.2.1 — 2026-07-11
 
 - Buffer videos up to 24 MB into the existing 200 MB page-session cache before playback, eliminating repeated Tailnet range fetches during replay and seeking.

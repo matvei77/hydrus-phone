@@ -28,8 +28,9 @@ export class SessionMediaCache {
     return entry;
   }
 
-  put(fileId: number, blob: Blob) {
+  put(fileId: number, blob: Blob, protectedFileIds: Iterable<number> = []) {
     if (!blob.size || blob.size > SESSION_MEDIA_ITEM_LIMIT) return undefined;
+    const protectedSet = new Set(protectedFileIds);
     const previous = this.entries.get(fileId);
     if (previous) {
       this.entries.delete(fileId);
@@ -40,9 +41,13 @@ export class SessionMediaCache {
     this.entries.set(fileId, entry);
     this.totalBytes += entry.bytes;
     while (this.totalBytes > this.limit) {
-      const oldest = this.entries.entries().next().value as
-        | [number, SessionMediaEntry]
-        | undefined;
+      const oldest =
+        [...this.entries.entries()].find(
+          ([candidateId]) => !protectedSet.has(candidateId),
+        ) ??
+        (this.entries.entries().next().value as
+          | [number, SessionMediaEntry]
+          | undefined);
       if (!oldest) break;
       this.entries.delete(oldest[0]);
       this.totalBytes -= oldest[1].bytes;
@@ -60,6 +65,17 @@ export class SessionMediaCache {
     this.entries.clear();
     this.totalBytes = 0;
   }
+}
+
+export function protectedNavigationIds(
+  fileIds: number[],
+  position: number,
+  radius = 2,
+) {
+  return fileIds.slice(
+    Math.max(0, position - radius),
+    Math.min(fileIds.length, position + radius + 1),
+  );
 }
 
 export function surroundingFileIds(
