@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { api } from "../api";
+import { buildJustifiedRows } from "../galleryLayout";
 import { classifyMedia, mediaFileUrl, needsHydrusRender } from "../media";
 import {
   SESSION_MEDIA_CACHE_LIMIT,
@@ -166,29 +167,30 @@ export function ResultsGrid({
     Math.min(5, width > 850 ? Math.max(density, 5) : density),
   );
   const gap = 8;
-  const cell = (width - gap * (cols - 1)) / cols;
-  const rows = Math.ceil(fileIds.length / cols);
+  const targetHeight = (width - gap * (cols - 1)) / cols;
+  const rows = useMemo(
+    () => buildJustifiedRows(fileIds, media, width, targetHeight, gap),
+    [fileIds, media, width, targetHeight],
+  );
   const virtual = useVirtualizer({
-    count: rows,
+    count: rows.length,
     getScrollElement: () => parent.current,
-    estimateSize: () => cell + gap,
+    estimateSize: (index) => (rows[index]?.height ?? targetHeight) + gap,
     overscan: 4,
   });
   useEffect(() => {
     const saved = Number(localStorage.getItem(storageKey) ?? 0);
     const frame = requestAnimationFrame(() => virtual.scrollToOffset(saved));
     return () => cancelAnimationFrame(frame);
-  }, [virtual, storageKey, rows, width]);
+  }, [virtual, storageKey, rows.length, width]);
   const visible = virtual.getVirtualItems();
   useEffect(() => {
     const ids = virtual
       .getVirtualItems()
-      .flatMap((row) =>
-        fileIds.slice(row.index * cols, row.index * cols + cols),
-      )
+      .flatMap((row) => rows[row.index]?.items.map((item) => item.fileId) ?? [])
       .filter((id) => !media.has(id));
     if (ids.length) onNeed([...new Set(ids)].slice(0, 256));
-  }, [virtual, cols, fileIds, media, onNeed]);
+  }, [virtual, rows, media, onNeed]);
   return (
     <div
       className="grid-scroll"
@@ -204,21 +206,23 @@ export function ResultsGrid({
       }}
     >
       <div className="virtual-grid" style={{ height: virtual.getTotalSize() }}>
-        {visible.map((row) => (
-          <div
-            className="grid-row"
-            key={row.key}
-            style={{
-              height: cell,
-              transform: `translateY(${row.start}px)`,
-              gridTemplateColumns: `repeat(${cols},1fr)`,
-            }}
-          >
-            {fileIds
-              .slice(row.index * cols, row.index * cols + cols)
-              .map((id, col) => {
+        {visible.map((virtualRow) => {
+          const row = rows[virtualRow.index];
+          if (!row) return null;
+          return (
+            <div
+              className="grid-row"
+              key={virtualRow.key}
+              style={{
+                height: row.height,
+                transform: `translateY(${virtualRow.start}px)`,
+                gridTemplateColumns: row.items
+                  .map((item) => `${item.width}px`)
+                  .join(" "),
+              }}
+            >
+              {row.items.map(({ fileId: id, index }) => {
                 const m = media.get(id);
-                const index = row.index * cols + col;
                 return (
                   <button
                     className={`media-card ${selectedId === id ? "selected" : ""}`}
@@ -249,8 +253,9 @@ export function ResultsGrid({
                   </button>
                 );
               })}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

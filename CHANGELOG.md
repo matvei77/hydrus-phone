@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0 — 2026-07-11
+
+- Replaced uniform square gallery cells with virtualized justified rows that preserve portrait, landscape, and square media proportions.
+- Retained chronological/search order, edge-to-edge row packing, natural final-row width, density controls, and exact Back/reload scroll restoration.
+
 ## 1.0.0 — 2026-07-11
 
 - Established the final monochrome Hydrus-inspired interface with neutral utility surfaces, blue focus/selection, and semantic-only status color.

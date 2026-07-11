@@ -8,7 +8,7 @@
 - [x] Bounded search/metadata, virtualization, cancellation, Range streaming
 - [x] Search/filter/sort/saved/view/tag/archive implementation
 - [x] Installable PWA with bounded thumbnail cache and uncached originals
-- [x] Lint, typecheck, 33 Vitest tests, and production build
+- [x] Lint, typecheck, 36 Vitest tests, and production build
 - [x] 21 mocked Playwright workflows across Android, desktop, and dark mode
 - [x] Axe WCAG A/AA scan: no serious or critical findings
 - [x] Live deployed read-only Playwright workflow
