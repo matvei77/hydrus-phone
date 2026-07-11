@@ -299,6 +299,9 @@ export function Viewer({
   const [cacheState, setCacheState] = useState(() =>
     sessionMediaCache.stats(),
   );
+  const [videoFallbackIds, setVideoFallbackIds] = useState<Set<number>>(
+    () => new Set(),
+  );
   const onPositionChangeRef = useRef(onPositionChange);
   useEffect(() => {
     onPositionChangeRef.current = onPositionChange;
@@ -306,6 +309,34 @@ export function Viewer({
   useEffect(() => setPosition(index), [index]);
   const id = fileIds[position];
   const m = media.get(id);
+  useEffect(() => {
+    if (
+      !m ||
+      classifyMedia(m) !== "video" ||
+      m.size > SESSION_MEDIA_ITEM_LIMIT ||
+      sessionMediaCache.has(id) ||
+      prefetching.current.has(id) ||
+      videoFallbackIds.has(id)
+    )
+      return;
+    prefetching.current.add(id);
+    void fetch(mediaFileUrl(m), {
+      cache: "no-store",
+      signal: prefetchAbort.current.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Video request failed (${response.status})`);
+        const blob = await response.blob();
+        if (!sessionMediaCache.put(id, blob))
+          throw new Error("Video is too large for the session cache");
+        setCacheState(sessionMediaCache.stats());
+      })
+      .catch((error) => {
+        if ((error as Error).name !== "AbortError")
+          setVideoFallbackIds((current) => new Set(current).add(id));
+      })
+      .finally(() => prefetching.current.delete(id));
+  }, [id, m, videoFallbackIds]);
   useEffect(() => {
     setImageZoomed(false);
     setMediaReady(false);
@@ -335,7 +366,8 @@ export function Viewer({
     const queue = surroundingFileIds(fileIds, position)
       .map((fileId) => media.get(fileId))
       .filter(
-        (item): item is Media => !!item && classifyMedia(item) === "image",
+        (item): item is Media =>
+          !!item && ["image", "video"].includes(classifyMedia(item)),
       )
       .filter((item) => {
         const estimatedBytes =
@@ -421,6 +453,13 @@ export function Viewer({
   const type = classifyMedia(m);
   const mediaUrl = mediaFileUrl(m);
   const imageUrl = sessionMediaCache.get(id)?.url ?? mediaUrl;
+  const cachedVideoUrl =
+    type === "video" ? sessionMediaCache.get(id)?.url : undefined;
+  const bufferVideoBeforePlayback =
+    type === "video" &&
+    m.size <= SESSION_MEDIA_ITEM_LIMIT &&
+    !cachedVideoUrl &&
+    !videoFallbackIds.has(id);
   const allDisplayTags = [
     ...new Set(Object.values(m.displayTags).flatMap((tags) => tags)),
   ].sort((a, b) => a.localeCompare(b));
@@ -477,10 +516,19 @@ export function Viewer({
           onReady={() => setMediaReady(true)}
         />
       )}
-      {type === "video" && (
+      {bufferVideoBeforePlayback && (
+        <div
+          className="viewer-video video-buffering"
+          style={{ backgroundImage: `url(/api/media/${id}/thumbnail)` }}
+          role="status"
+        >
+          <span>Buffering video…</span>
+        </div>
+      )}
+      {type === "video" && !bufferVideoBeforePlayback && (
         <video
           className="viewer-video"
-          src={mediaUrl}
+          src={cachedVideoUrl ?? mediaUrl}
           poster={`/api/media/${id}/thumbnail`}
           controls
           autoPlay
