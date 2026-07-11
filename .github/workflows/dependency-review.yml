@@ -1,14 +1,16 @@
 name: Dependency review
 
-# Enable the pull_request trigger when the repository becomes public, or when
-# GitHub Advanced Security is enabled for the private repo.
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   review:
+    if: github.event_name == 'workflow_dispatch' || github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7

@@ -14,7 +14,7 @@ Do not force-rewrite the private repository as part of ordinary release work. Fo
    ```
 
 5. Initialize a clean repository in that directory, create the initial signed commit and a tag matching the exported package version, then publish it or replace the private remote only with explicit approval.
-6. Enable `push`, `pull_request`, and weekly schedule triggers in the CodeQL workflow, plus the `pull_request` trigger in dependency review. They are manual-only while this repository is private because those checks require a public repository or GitHub Advanced Security.
+6. Confirm the public-aware CodeQL and dependency-review workflows activate after visibility changes; they skip automatically while a repository is private without GitHub Advanced Security.
 7. Enable private vulnerability reporting, branch protection, required release-gate checks, Dependabot alerts, and secret scanning in repository settings. These controls are unavailable to this private repository on its current GitHub plan; the prepared workflows and templates do not substitute for required-check enforcement.
 8. Verify README links and issue contact links against the final public repository URL.
 
