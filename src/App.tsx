@@ -78,14 +78,14 @@ function Shell() {
         <Route path="/settings" element={<Settings health={health.data} />} />
       </Routes>
       <nav className="bottom-nav" aria-label="Main navigation">
-        <NavLink to="/" end>
-          <span>▦</span>Browse
+        <NavLink to="/" end aria-label="Browse">
+          <span>▦</span><strong>Browse</strong>
         </NavLink>
-        <NavLink to="/saved">
-          <span>◇</span>Saved
+        <NavLink to="/saved" aria-label="Saved">
+          <span>◇</span><strong>Saved</strong>
         </NavLink>
-        <NavLink to="/settings">
-          <span>⚙</span>Settings
+        <NavLink to="/settings" aria-label="Settings">
+          <span>⚙</span><strong>Settings</strong>
         </NavLink>
       </nav>
       <PwaUpdate />
@@ -116,6 +116,9 @@ function Browse({
   const [submitted, setSubmitted] = useState<QueryState>(initial);
   const [filters, setFilters] = useState(false);
   const [sorting, setSorting] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(
+    () => !new URLSearchParams(location.search).has("q"),
+  );
   const [viewer, setViewer] = useState<number | null>(null);
   const [media, setMedia] = useState<Map<number, Media>>(new Map());
   const loadingIds = useRef(new Set<number>());
@@ -185,7 +188,10 @@ function Browse({
     });
     setNotice("");
   };
-  const submit = () => runQuery(draft, { replace: true, recent: true });
+  const submit = () => {
+    runQuery(draft, { replace: true, recent: true });
+    setSearchOpen(false);
+  };
   const refine = (next: QueryState) => runQuery(next, { replace: true });
   const need = useCallback(
     (ids: number[]) => {
@@ -249,37 +255,61 @@ function Browse({
   };
   return (
     <main className="browse-page">
-      <section className="search-panel">
-        <SearchComposer
-          tokens={draft.tokens}
-          onChange={(tokens) => refine({ ...draft, tokens })}
-          onSearch={submit}
-          tagServiceKey={draft.tagServiceKey}
-        />
-        <div className="search-actions">
-          <button className="primary search-button" onClick={submit}>
-            Search
-          </button>
-          <button className="tool-button" onClick={() => setFilters(true)}>
-            Filters{" "}
-            {activeFilterCount(draft.filters) > 0 && (
-              <b>{activeFilterCount(draft.filters)}</b>
-            )}
-          </button>
-          <button className="tool-button" onClick={() => setSorting(true)}>
-            Sort{" "}
-            <span>
-              {sortName(draft.sort)} {draft.ascending ? "↑" : "↓"}
-            </span>
-          </button>
-          <button
-            className="icon-button"
-            onClick={save}
-            aria-label="Save search"
-          >
-            ◇
-          </button>
-        </div>
+      <section
+        className={`search-panel ${searchOpen ? "expanded" : "collapsed"}`}
+      >
+        {!searchOpen && (
+          <div className="search-summary">
+            <button onClick={() => setSearchOpen(true)} aria-label="Edit search">
+              <span>⌕</span>
+              <strong>
+                {draft.tokens.map((token) => token.value).join(" · ") ||
+                  "All files"}
+              </strong>
+            </button>
+            <button onClick={() => setFilters(true)}>
+              Filters
+              {activeFilterCount(draft.filters) > 0 && (
+                <b>{activeFilterCount(draft.filters)}</b>
+              )}
+            </button>
+            <button onClick={() => setSorting(true)}>Sort</button>
+          </div>
+        )}
+        {searchOpen && (
+          <>
+            <SearchComposer
+              tokens={draft.tokens}
+              onChange={(tokens) => refine({ ...draft, tokens })}
+              onSearch={submit}
+              tagServiceKey={draft.tagServiceKey}
+            />
+            <div className="search-actions">
+              <button className="primary search-button" onClick={submit}>
+                Search
+              </button>
+              <button className="tool-button" onClick={() => setFilters(true)}>
+                Filters{" "}
+                {activeFilterCount(draft.filters) > 0 && (
+                  <b>{activeFilterCount(draft.filters)}</b>
+                )}
+              </button>
+              <button className="tool-button" onClick={() => setSorting(true)}>
+                Sort{" "}
+                <span>
+                  {sortName(draft.sort)} {draft.ascending ? "↑" : "↓"}
+                </span>
+              </button>
+              <button
+                className="icon-button"
+                onClick={save}
+                aria-label="Save search"
+              >
+                ◇
+              </button>
+            </div>
+          </>
+        )}
       </section>
       {healthError && (
         <StatePanel
@@ -432,16 +462,20 @@ function Browse({
         <FilterSheet
           query={draft}
           services={services}
-          onApply={(value) => refine({ ...draft, ...value })}
+          onApply={(value) => {
+            refine({ ...draft, ...value });
+            setSearchOpen(false);
+          }}
           onClose={() => setFilters(false)}
         />
       )}{" "}
       {sorting && (
         <SortSheet
           query={draft}
-          onApply={(sort, ascending) =>
-            refine({ ...draft, sort, ascending })
-          }
+          onApply={(sort, ascending) => {
+            refine({ ...draft, sort, ascending });
+            setSearchOpen(false);
+          }}
           onClose={() => setSorting(false)}
         />
       )}{" "}

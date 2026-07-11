@@ -8,6 +8,7 @@ import {
   SESSION_MEDIA_ITEM_LIMIT,
   protectedNavigationIds,
   sessionMediaCache,
+  shouldBufferVideo,
   surroundingFileIds,
 } from "../sessionMediaCache";
 import { scrollStorageKey } from "../storage";
@@ -296,7 +297,6 @@ export function Viewer({
   const [mediaReady, setMediaReady] = useState(false);
   const [touch, setTouch] = useState<{ x: number; y: number } | null>(null);
   const prefetching = useRef(new Set<number>());
-  const prefetchAbort = useRef(new AbortController());
   const protectedCacheIds = useRef<Set<number>>(new Set());
   const [cacheState, setCacheState] = useState(() =>
     sessionMediaCache.stats(),
@@ -318,16 +318,16 @@ export function Viewer({
     if (
       !m ||
       classifyMedia(m) !== "video" ||
-      m.size > SESSION_MEDIA_ITEM_LIMIT ||
+      !shouldBufferVideo(m.size) ||
       sessionMediaCache.has(id) ||
-      prefetching.current.has(id) ||
       videoFallbackIds.has(id)
     )
       return;
+    const controller = new AbortController();
     prefetching.current.add(id);
     void fetch(mediaFileUrl(m), {
       cache: "no-store",
-      signal: prefetchAbort.current.signal,
+      signal: controller.signal,
     })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Video request failed (${response.status})`);
@@ -341,6 +341,7 @@ export function Viewer({
           setVideoFallbackIds((current) => new Set(current).add(id));
       })
       .finally(() => prefetching.current.delete(id));
+    return () => controller.abort();
   }, [id, m, videoFallbackIds]);
   useEffect(() => {
     setImageZoomed(false);
@@ -366,13 +367,20 @@ export function Viewer({
     );
   }, [position, fileIds, media, onNeed]);
   useEffect(() => {
-    if (!mediaReady) return;
+    if (
+      !mediaReady ||
+      (m && classifyMedia(m) === "video" && !sessionMediaCache.has(id))
+    )
+      return;
+    const controller = new AbortController();
     let plannedBytes = 0;
     const queue = surroundingFileIds(fileIds, position)
       .map((fileId) => media.get(fileId))
       .filter(
         (item): item is Media =>
-          !!item && ["image", "video"].includes(classifyMedia(item)),
+          !!item &&
+          (classifyMedia(item) === "image" ||
+            (classifyMedia(item) === "video" && shouldBufferVideo(item.size))),
       )
       .filter((item) => {
         const estimatedBytes =
@@ -390,14 +398,14 @@ export function Viewer({
         );
       });
     const worker = async () => {
-      while (queue.length && !prefetchAbort.current.signal.aborted) {
+      while (queue.length && !controller.signal.aborted) {
         const item = queue.shift();
         if (!item) return;
         prefetching.current.add(item.fileId);
         try {
           const response = await fetch(mediaFileUrl(item), {
             cache: "no-store",
-            signal: prefetchAbort.current.signal,
+            signal: controller.signal,
           });
           if (!response.ok) continue;
           const blob = await response.blob();
@@ -424,13 +432,8 @@ export function Viewer({
       worker(),
       worker(),
     ]);
-  }, [position, fileIds, media, mediaReady]);
-  useEffect(
-    () => () => {
-      prefetchAbort.current.abort();
-    },
-    [],
-  );
+    return () => controller.abort();
+  }, [position, fileIds, media, mediaReady, id, m]);
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -466,9 +469,11 @@ export function Viewer({
     type === "video" ? sessionMediaCache.get(id)?.url : undefined;
   const bufferVideoBeforePlayback =
     type === "video" &&
-    m.size <= SESSION_MEDIA_ITEM_LIMIT &&
+    shouldBufferVideo(m.size) &&
     !cachedVideoUrl &&
     !videoFallbackIds.has(id);
+  const lookaheadAllowed =
+    mediaReady && !(type === "video" && !cachedVideoUrl);
   const allDisplayTags = [
     ...new Set(Object.values(m.displayTags).flatMap((tags) => tags)),
   ].sort((a, b) => a.localeCompare(b));
@@ -479,7 +484,7 @@ export function Viewer({
       const item = media.get(fileId);
       return item && classifyMedia(item) === "video";
     })
-    .slice(0, mediaReady ? 2 : 0);
+    .slice(0, lookaheadAllowed ? 2 : 0);
   return (
     <div
       className={`viewer ${displayTags.length ? "has-tags" : ""}`}
@@ -543,7 +548,8 @@ export function Viewer({
           autoPlay
           preload="auto"
           playsInline
-          onLoadedMetadata={() => setMediaReady(true)}
+          onCanPlay={() => setMediaReady(true)}
+          onWaiting={() => setMediaReady(false)}
           onError={() => setMediaReady(true)}
           onClick={(e) => e.stopPropagation()}
         />
