@@ -4,8 +4,9 @@ Hydrus Pocket is a phone-first, tailnet-only companion for privately searching, 
 
 It runs beside Hydrus on a Windows computer. A localhost-only gateway owns the Hydrus credential, while phones and laptops connect to the same-origin PWA through Tailscale Serve. The permanent Hydrus access key is never sent to a browser.
 
-> Hydrus Pocket is an independent community project. It is not affiliated with or endorsed by the Hydrus Network project or its developer.
+> Hydrus Pocket is an independent community project. It is not affiliated with or endorsed by the Hydrus Network project or its developer. Install and run it at your own risk! I made it as light as possible. If you want a feature, add an issue or open a bruch/pr yourself.
 
+Many thanks to the original [Hydrus](https://github.com/hydrusnetwork) developer for making the amazing software in the first place.
 ![Hydrus Pocket on Android](docs/screenshots/android.png)
 
 ## Features
@@ -115,7 +116,7 @@ npm run test:e2e:live
 - [Support](SUPPORT.md)
 - [Changelog](CHANGELOG.md)
 
-## License
+## License 
 
 Copyright 2026 Hydrus Pocket contributors.
 
