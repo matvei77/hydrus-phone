@@ -1,0 +1,18 @@
+name: Dependency review
+
+# Enable the pull_request trigger when the repository becomes public, or when
+# GitHub Advanced Security is enabled for the private repo.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-1.0, AGPL-3.0

@@ -5,9 +5,7 @@ export default defineConfig({
   testMatch: "live.spec.ts",
   reporter: "list",
   use: {
-    baseURL:
-      process.env.HYDRUS_POCKET_URL ??
-      "https://desktop-gtpsl86-1.tailddb64.ts.net",
+    baseURL: process.env.HYDRUS_POCKET_URL ?? "http://127.0.0.1:47810",
     trace: "retain-on-failure",
   },
   projects: [{ name: "live-chrome", use: { ...devices["Desktop Chrome"] } }],

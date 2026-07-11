@@ -1,0 +1,59 @@
+name: Bug report
+description: Report a reproducible Hydrus Pocket defect
+title: "[Bug]: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, private DNS names, file hashes, private tags, filenames, or collection screenshots.
+  - type: input
+    id: version
+    attributes:
+      label: Hydrus Pocket version
+      placeholder: v1.4.0
+    validations:
+      required: true
+  - type: input
+    id: hydrus
+    attributes:
+      label: Hydrus and Client API versions
+      placeholder: Hydrus v649, Client API v83
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Host and client environment
+      placeholder: Windows 11 host; Pixel 8; Android 16; Chrome 140
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest reliable sequence.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and redacted logs
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I tested the latest release.
+          required: true
+        - label: I removed credentials, private hostnames, hashes, tags, filenames, and personal media.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

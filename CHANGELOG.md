@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.0 — 2026-07-11
+
+- Prepare the private repository for an eventual public launch under Apache License 2.0, with Hydrus attribution and an explicit non-affiliation notice.
+- Remove the internal delivery prompt and every tracked private-machine hostname; discover Tailscale DNS and configured ports at install time.
+- Replace machine-specific setup with a reproducible Windows installation guide, generic deployment/operations documentation, and a documented threat model.
+- Add contribution, conduct, support, vulnerability-reporting, third-party notice, CODEOWNERS, issue/PR templates, Dependabot, and public-launch security workflows.
+
 ## 1.3.1 — 2026-07-11
 
 - Remove blocking full-file buffering from the active viewer: every uncached video now mounts immediately and starts through native byte-range streaming.
