@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 — 2026-07-11
+
+- Audited and tightened every phone surface: collapsible search chrome, compact filter/sort access, 48 px icon-first navigation, shorter Saved/Settings headers, denser sheets, viewer controls, and tag ribbon.
+- Prioritize the open viewer item by aborting stale speculative transfers whenever navigation changes or a streaming video stalls.
+- Buffer small videos up to 8 MB for replay, but start larger/longer videos immediately with Range streaming instead of waiting for a full-file download.
+- Disable all lookahead traffic while a non-cached video is playing so the active stream owns the low-bandwidth connection.
+
 ## 1.2.2 — 2026-07-11
 
 - Protect the current media and the two nearest files in both directions from eviction by speculative preload traffic.

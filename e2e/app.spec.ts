@@ -449,13 +449,26 @@ test("viewer tags refine a collection and Back restores its prior page", async (
 
 test("saved searches, restart state, offline direction, and PWA metadata work", async ({
   page,
-}) => {
+}, testInfo) => {
   const state = await mockApi(page);
   await page.goto("/");
   page.once("dialog", (dialog) => dialog.accept("My test search"));
   await page.getByRole("button", { name: "Save search" }).click();
   await page.getByRole("link", { name: "Saved" }).click();
   await expect(page.getByText("My test search")).toBeVisible();
+  if (process.env.CAPTURE_VISUALS) {
+    await page.screenshot({
+      path: `docs/screenshots/saved-${testInfo.project.name}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("link", { name: "Settings" }).click();
+    await expect(page.getByText("Archive connected")).toBeVisible();
+    await page.screenshot({
+      path: `docs/screenshots/settings-${testInfo.project.name}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("link", { name: "Saved" }).click();
+  }
   await page.getByText("My test search").click();
   state.setHealthy(false);
   await page.reload();

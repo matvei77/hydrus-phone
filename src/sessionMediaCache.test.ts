@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   protectedNavigationIds,
   SessionMediaCache,
+  shouldBufferVideo,
   surroundingFileIds,
 } from "./sessionMediaCache";
 
@@ -45,6 +46,11 @@ describe("session media cache", () => {
     expect(protectedNavigationIds([10, 11, 12, 13, 14, 15], 2)).toEqual([
       10, 11, 12, 13, 14,
     ]);
+  });
+
+  it("buffers only small videos and streams longer files immediately", () => {
+    expect(shouldBufferVideo(8 * 1024 * 1024)).toBe(true);
+    expect(shouldBufferVideo(8 * 1024 * 1024 + 1)).toBe(false);
   });
 
   it("prioritizes the next item, current item, and then both directions", () => {

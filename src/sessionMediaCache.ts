@@ -1,5 +1,9 @@
 export const SESSION_MEDIA_CACHE_LIMIT = 200 * 1024 * 1024;
 export const SESSION_MEDIA_ITEM_LIMIT = 24 * 1024 * 1024;
+export const SESSION_VIDEO_BUFFER_LIMIT = 8 * 1024 * 1024;
+
+export const shouldBufferVideo = (bytes: number) =>
+  bytes > 0 && bytes <= SESSION_VIDEO_BUFFER_LIMIT;
 
 export type SessionMediaEntry = {
   url: string;
