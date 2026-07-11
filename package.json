@@ -1,6 +1,18 @@
 {
   "name": "hydrus-pocket",
-  "version": "1.3.1",
+  "version": "1.4.0",
+  "description": "Phone-first, tailnet-only companion for browsing and lightly organizing a Hydrus archive.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matvei77/hydrus-phone.git"
+  },
+  "bugs": {
+    "url": "https://github.com/matvei77/hydrus-phone/issues"
+  },
+  "engines": {
+    "node": ">=22 <25"
+  },
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,8 +27,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:live": "playwright test -c playwright.live.config.ts",
+    "check:licenses": "node scripts/check-licenses.mjs",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
-    "check:release": "npm run check && npm run test:e2e && npm audit --omit=dev"
+    "check:release": "npm run check && npm run test:e2e && npm run check:licenses && npm audit --omit=dev"
   },
   "dependencies": {
     "@fastify/compress": "^8.1.0",

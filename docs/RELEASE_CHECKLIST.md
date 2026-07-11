@@ -8,7 +8,7 @@
 - [x] Bounded search/metadata, virtualization, cancellation, Range streaming
 - [x] Search/filter/sort/saved/view/tag/archive implementation
 - [x] Installable PWA with bounded thumbnail cache and uncached originals
-- [x] Lint, typecheck, 36 Vitest tests, and production build
+- [x] Lint, typecheck, 41 Vitest tests, and production build
 - [x] 21 mocked Playwright workflows across Android, desktop, and dark mode
 - [x] Axe WCAG A/AA scan: no serious or critical findings
 - [x] Live deployed read-only Playwright workflow
@@ -17,7 +17,11 @@
 - [x] Real byte Range request returned 206 with correct Content-Range
 - [x] Tailnet-only HTTPS health returned 200
 - [x] Startup supervisor recovered a killed gateway process within five seconds
-- [x] RC2-to-RC1 rollback and RC2 restore exercised successfully
+- [x] Previous-build rollback and current-build restore exercised successfully
+- [x] Apache-2.0 license, notice, third-party license inventory, and non-affiliation statement
+- [x] Generic configuration with no tracked private hostname or credential
+- [x] Public README, support, security, contribution, conduct, and GitHub templates
+- [x] Dependabot configuration plus public-launch CodeQL/dependency-review workflows
 - [x] Pull requests and `main` are protected by the automated release-gate workflow
 
 ## Post-v1 operational follow-ups

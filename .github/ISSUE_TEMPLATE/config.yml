@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/matvei77/hydrus-phone/security/advisories/new
+    about: Report vulnerabilities privately after public launch
+  - name: Support and troubleshooting
+    url: https://github.com/matvei77/hydrus-phone/blob/main/SUPPORT.md
+    about: Read supported platforms and diagnostic steps first

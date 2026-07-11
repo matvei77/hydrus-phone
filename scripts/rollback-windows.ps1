@@ -1,12 +1,18 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
+$port = 47810
+$environmentFile = Join-Path $root ".env"
+if (Test-Path $environmentFile) {
+  $portLine = Get-Content $environmentFile | Where-Object { $_ -match '^PORT=' } | Select-Object -First 1
+  if ($portLine) { $port = [int]($portLine -replace '^PORT=', '') }
+}
 $rollback = Join-Path $root ".hydrus-pocket\rollback\dist"
 if (-not (Test-Path $rollback)) { throw "No previous production build is available to roll back." }
 
 Get-CimInstance Win32_Process |
   Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like "*scripts\start-production.ps1*" } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-$listener = Get-NetTCPConnection -LocalPort 47810 -State Listen -ErrorAction SilentlyContinue
+$listener = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
 if ($listener) { Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue }
 
 $failed = Join-Path $root ".hydrus-pocket\failed-dist"

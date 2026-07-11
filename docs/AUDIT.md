@@ -1,8 +1,8 @@
 # Production-readiness audit
 
-This audit maps the controlling `prompt.txt` scope to current evidence. “Automated” means repeatable local tests; “live” means the real Hydrus v649 / Client API v83 or the deployed tailnet service; “external” requires the physical Pixel or a user-designated mutable file.
+This audit maps the documented product scope to current evidence. “Automated” means repeatable local tests; “live” means a real supported Hydrus/Client API instance or deployed tailnet service; “external” requires a physical target device or a user-designated mutable file.
 
-## Proven through v1.3.1
+## Proven through v1.4.0
 
 - Architecture/security: same-origin Fastify gateway, localhost Hydrus, renewable server-side session key, no generic proxy/CORS, validated bodies/queries, redacted headers, CSP/security headers, rate/body limits, `no-store` originals/API, secret scan, and tailnet-only HTTPS.
 - Health/recovery: diagnostic health, strict readiness, API-version/permission checks, timeout and error codes, session renewal, aborted-stream cleanup, graceful shutdown, continuously capped logs, crash restart, startup registration, health command, uninstall, update, and executable rollback path.
@@ -12,7 +12,7 @@ This audit maps the controlling `prompt.txt` scope to current evidence. “Autom
 - Collection flow: tag ribbon on every viewed item, tag-to-current-search refinement, clean tag exploration branches with Back restoration, auto-applied chips/filters/sorts/limits, and retained results/metadata during background refinement.
 - Organization: display/storage tag separation, local-service selection, storage autocomplete, deduplicated namespace groups, guarded pending UI, authoritative refresh, duplicate-submit prevention, hash-based local tag mutations, and hash-based archive/unarchive. Delete/petition/moderation routes do not exist.
 - PWA/mobile/accessibility: Android manifest with 192/512/maskable PNGs, standalone shell, bounded thumbnail cache, uncached originals, safe update prompt, clear-cache control, compact browse chrome, bottom mobile navigation, a bottom-right desktop dock, 48 px controls, keyboard/Back behavior, accessible labels/status announcements, reduced motion, responsive portrait/desktop layouts, and tested light/dark contrast.
-- Automated evidence: `npm run check:release` passes 36 Vitest tests, 21 Playwright workflows across Pixel-size/desktop/dark projects, WCAG A/AA serious+critical audit, production build, and production dependency audit. Gateway integration covers health/readiness, auth/session renewal, search, autocomplete, metadata, thumbnails, JPEG XL rendering, Range/invalid Range, timeouts, permission errors, tag writes, archive writes, and dynamic static-asset routing.
+- Automated evidence: `npm run check:release` passes 41 Vitest tests, 21 Playwright workflows across Pixel-size/desktop/dark projects, WCAG A/AA serious+critical audit, production build, and production dependency audit. Gateway integration covers health/readiness, auth/session renewal, search, autocomplete, metadata, thumbnails, JPEG XL rendering, Range/invalid Range, timeouts, permission errors, tag writes, archive writes, and dynamic static-asset routing.
 - Live read-only evidence: real autocomplete, negative/OR/date/media/dimension/duration/ratio predicates, every required sort enum, broad bounded search, metadata, thumbnail, image/video/application discovery, a real 206 byte range, local health/readiness, HTTPS health, manifest, service worker, secret absence, and gateway crash recovery.
 
 ## Post-v1 operational follow-ups

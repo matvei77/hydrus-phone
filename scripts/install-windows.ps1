@@ -4,10 +4,17 @@ Set-Location $root
 
 if (-not (Test-Path ".env")) { throw "Missing .env. Run scripts/request-hydrus-access.ps1 after opening Hydrus permission registration." }
 
+$environment = @{}
+Get-Content ".env" | ForEach-Object {
+  if ($_ -match '^\s*([^#=]+)=(.*)$') { $environment[$matches[1].Trim()] = $matches[2].Trim() }
+}
+$port = if ($environment.PORT) { [int]$environment.PORT } else { 47810 }
+$localUrl = "http://127.0.0.1:$port"
+
 Get-CimInstance Win32_Process |
   Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like "*scripts\start-production.ps1*" } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-$listener = Get-NetTCPConnection -LocalPort 47810 -State Listen -ErrorAction SilentlyContinue
+$listener = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
 if ($listener) { Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue }
 
 $rollback = Join-Path $root ".hydrus-pocket\rollback\dist"
@@ -44,5 +51,30 @@ try {
   Write-Host "Scheduled Task creation was unavailable; installed the no-admin per-user startup supervisor instead."
 }
 
-& tailscale serve --bg http://127.0.0.1:47810
-Write-Host "Hydrus Pocket installed. Open https://desktop-gtpsl86-1.tailddb64.ts.net"
+$appUrl = $environment.APP_URL
+if (Get-Command tailscale -ErrorAction SilentlyContinue) {
+  & tailscale serve --bg $localUrl
+  if ($LASTEXITCODE -ne 0) { throw "tailscale serve failed" }
+  if (-not $appUrl) {
+    try {
+      $status = (& tailscale status --json | ConvertFrom-Json)
+      $dnsName = [string]$status.Self.DNSName
+      if ($dnsName) { $appUrl = "https://$($dnsName.TrimEnd('.'))" }
+    } catch {}
+  }
+  if ($appUrl -and -not $environment.APP_URL) {
+    $envLines = Get-Content ".env"
+    $updated = $false
+    $envLines = $envLines | ForEach-Object {
+      if ($_ -match '^APP_URL=') { $updated = $true; "APP_URL=$appUrl" } else { $_ }
+    }
+    if (-not $updated) { $envLines += "APP_URL=$appUrl" }
+    [System.IO.File]::WriteAllLines((Join-Path $root ".env"), $envLines)
+  }
+} else {
+  Write-Warning "Tailscale CLI was not found. The gateway is installed locally, but remote access was not configured."
+}
+
+Write-Host "Hydrus Pocket installed."
+Write-Host "Local health: $localUrl/api/health"
+if ($appUrl) { Write-Host "Open $appUrl on a device in the same tailnet." }

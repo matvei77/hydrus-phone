@@ -8,7 +8,10 @@ const schema = z.object({
     .regex(/^[0-9a-f]{64}$/i, "must be a 64-character Hydrus access key"),
   HOST: z.string().default("127.0.0.1"),
   PORT: z.coerce.number().int().min(1024).max(65535).default(47810),
-  APP_URL: z.string().url().optional(),
+  APP_URL: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().url().optional(),
+  ),
   LOG_LEVEL: z.string().default("info"),
 });
 
